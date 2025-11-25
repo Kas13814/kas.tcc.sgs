@@ -55,10 +55,10 @@ textarea{min-height:90px;resize:vertical}
 <div id="toast" class="toast">Saved</div>
 
 <script>
-/* URLs */
-const CREATE_URL = "https://default60dea775d71f4a6ea493d06d9b2ab2.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4d914035f83f434a8aebce8706c85ce5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=IPNunYNfpDkFlvuA2DlCqecL8rdlzNdYogQkqXqvFic";
-const FETCH_URL  = "https://default60dea775d71f4a6ea493d06d9b2ab2.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ea94a602d1fd4f13becfdbbcceae802f/triggers/manual/paths/invoke?api-version=1";
-const UPDATE_URL = ""; /* ضع رابط تدفق التحديث (الذي يحدث السجل ولا ينشئ سطرًا جديدًا) */
+/* URLs (تم تصحيح هذا الجزء - إزالة مفاتيح SAS) */
+const CREATE_URL = "YOUR_SUPABASE_CREATE_ENDPOINT";
+const FETCH_URL  = "YOUR_SUPABASE_FETCH_ENDPOINT";
+const UPDATE_URL = "YOUR_SUPABASE_UPDATE_ENDPOINT"; /* ضع رابط تدفق التحديث */
 
 const DATE_FMT='DD-MM-YYYY';
 function normalizeDigits(s){if(!s)return s;const ar='٠١٢٣٤٥٦٧٨٩';return String(s).replace(/[٠-٩]/g,ch=>String(ar.indexOf(ch)))}
@@ -112,6 +112,7 @@ function buildPayload(){const p={};FORM_DEF.fields.forEach(f=>{let v=getVal(f.na
 async function submitCreate(){
   const payload=buildPayload();
   for(const f of FORM_DEF.fields){ if(f.required && !payload[f.name]){ showToast('يرجى تعبئة الحقول المطلوبة',true); return; } }
+  // **ملاحظة:** يجب عليك إضافة المفتاح السري لـ Supabase في الـ Headers هنا
   try{
     disableUI(true);
     const r=await fetch(CREATE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -123,6 +124,7 @@ async function submitCreate(){
 
 async function fetchByEmployeeId(){
   const empId=getVal('Employee ID'); if(!empId){showToast('ادخل الرقم الوظيفي',true);return}
+  // **ملاحظة:** يجب عليك إضافة المفتاح السري لـ Supabase في الـ Headers هنا
   try{
     disableUI(true);
     const r=await fetch(FETCH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({"Employee ID":empId})});
@@ -135,9 +137,10 @@ async function fetchByEmployeeId(){
 }
 
 async function submitUpdate(){
-  if(!UPDATE_URL){showToast('أضف رابط التحديث أولاً',true);return}
+  if(!UPDATE_URL || UPDATE_URL==="YOUR_SUPABASE_UPDATE_ENDPOINT"){showToast('أضف رابط التحديث أولاً',true);return}
   const payload=buildPayload();
   const empId=payload["Employee ID"]; if(!empId){showToast('ادخل الرقم الوظيفي',true);return}
+  // **ملاحظة:** يجب عليك إضافة المفتاح السري لـ Supabase في الـ Headers هنا
   try{
     disableUI(true);
     const r=await fetch(UPDATE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
