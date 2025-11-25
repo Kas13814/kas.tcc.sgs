@@ -418,22 +418,6 @@ def run_planner(user_message: str) -> Dict[str, Any]:
     notes = data.get("notes") or ""
     return {"language": lang, "plan": plan, "notes": notes, "semantic": semantic_info}
 
-    prompt = build_planner_prompt(user_message)
-    raw = call_ai(prompt)
-    data = _safe_json_loads(raw)
-    if not data or not isinstance(data, dict):
-        # فشل التحليل، نعيد خطة فارغة لكن لا نكسر التنفيذ
-        return {"language": "ar", "plan": [], "notes": "no-structured-plan"}
-    # ضمان الحقول الأساسية
-    lang = data.get("language") or "ar"
-    if lang not in ("ar", "en"):
-        lang = "ar"
-    plan = data.get("plan") or []
-    if not isinstance(plan, list):
-        plan = []
-    notes = data.get("notes") or ""
-    return {"language": lang, "plan": plan, "notes": notes}
-
 
 # =================== مرحلة 2: تنفيذ الخطة على Supabase ===================
 
