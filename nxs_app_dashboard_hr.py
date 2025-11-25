@@ -48,12 +48,12 @@ SUPABASE_KEY = (
     or os.getenv("SUPABASE_KEY")
 )
 
-# ⚠️ هنا ثبّت نفس المفتاح الذي اختبرته في nxs_gemini_test.py
-GEMINI_API_KEY = "AIzaSyBtaHq6QQS5fmyGFqWUMzeM1qbcs4-1TFk"  # ← غيّره بمفتاحك الحقيقي
+# ⚠️ تم إزالة مفتاح الـ API المكشوف. يجب وضعه الآن في متغير البيئة GEMINI_API_KEY
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 GEMINI_MODEL_NAME = "gemini-2.5-flash"
 
-logging.info("🔑 Gemini key length in app: %d", len(GEMINI_API_KEY))
+logging.info("🔑 Gemini key length in app: %d", len(GEMINI_API_KEY) if GEMINI_API_KEY else 0)
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -203,8 +203,9 @@ SCHEMA_SUMMARY = """
    - "Departure Flight Number", "Departure Destination", "STD", "ATD", "Departure Violations"
    - "Description of Incident", "Failure Impact"
    - "Investigation status", "InvestigationID"
-   - "Consent to send investigation", "Current reminder", "Respond to the investigation"
-   - "Administrative procedure", "Final action", "Investigation status2"
+   - "Consent to send investigation", "Current reminder"
+   - "Respond to the investigation", "Administrative procedure", "Final action"
+   - "Investigation status2"
    - "Manager Notes", "Last Update"
    - "Item Type", "Path"
 
@@ -784,6 +785,71 @@ def tool_airline_flight_stats() -> Dict[str, Any]:
 #   تلخيص للبيانات من الأدوات
 # =========================
 
+def _nxs_parse_delay_to_minutes(raw):
+    """تحويل قيمة حقل Delay Minutes (مثل 00:20:00) إلى دقائق عددية."""
+    if raw is None:
+        return 0
+    # قيم رقمية مباشرة
+    try:
+        if isinstance(raw, (int, float)):
+            return int(raw)
+        text = str(raw).strip()
+        if not text:
+            return 0
+        # إذا كانت على شكل HH:MM:SS أو MM:SS
+        if ":" in text:
+            parts = text.split(":")
+            parts = [p or "0" for p in parts]
+            if len(parts) == 3:
+                h, m, s = parts
+            elif len(parts) == 2:
+                h, m, s = "0", parts[0], parts[1]
+            else:
+                # شكل غير متوقع، نحاول اعتباره دقائق
+                return int(float(text))
+            h = int(h)
+            m = int(m)
+            s = int(s)
+            total_minutes = h * 60 + m + (1 if s >= 30 else 0)
+            return total_minutes
+        # بدون نقطتين: نعتبرها دقائق
+        return int(float(text))
+    except Exception:
+        return 0
+
+
+def _nxs_parse_date_safe(date_str: Any) -> Optional[_dt.date]:
+    if not date_str:
+        return None
+    try:
+        # يفضل دائماً تخزين التواريخ كـ YYYY-MM-DD (ISO 8601) في قاعدة البيانات
+        if isinstance(date_str, str) and date_str.startswith("20") and date_str[4] == "-":
+            return _dt.date.fromisoformat(date_str[:10])
+        # محاولة تحليل تاريخ بصيغة Power Automate/SharePoint القديمة (DD-MM-YYYY)
+        if isinstance(date_str, str) and len(date_str) >= 10 and date_str[2] == "-" and date_str[5] == "-":
+            d, m, y = map(int, date_str.split("-")[:3])
+            return _dt.date(y, m, d)
+    except Exception:
+        pass
+    return None
+
+
+def _nxs_find_key(data: Dict[str, Any], part: str) -> Optional[str]:
+    part_l = part.lower().strip()
+    for k in data.keys():
+        if part_l in k.lower():
+            return k
+    return None
+
+
+def _nxs_in_range(d: _dt.date, d_from: Optional[_dt.date], d_to: Optional[_dt.date]) -> bool:
+    if d_from and d < d_from:
+        return False
+    if d_to and d > d_to:
+        return False
+    return True
+
+
 def _summary_employee_profile(info: Dict[str, Any], data: Dict[str, Any], lang: str) -> str:
     rows = data.get("rows") or []
     emp_id = data.get("employee_id") or info.get("employee_id") or "غير معروف"
@@ -831,14 +897,14 @@ def _summary_employee_profile(info: Dict[str, Any], data: Dict[str, Any], lang: 
             f"- Name: {name}\n"
             f"- Nationality: {nat}\n"
             f"- Gender: {gender}\n"
-            f"- Hiring date: {hiring_str}\n"
+            f"- Hiring Date: {hiring_str}\n"
             f"- Grade: {grade}\n"
-            f"- Actual role / job title: {role}\n"
-            f"- Current department: {dept}\n"
-            f"- Previous department: {prev_dept}\n"
-            f"- Last employment action type: {action_type}\n"
-            f"- Last employment action date: {action_date_str}\n"
-            f"- Exit reason / last employment action (if any): {exit_reason}"
+            f"- Actual Role / Job Title: {role}\n"
+            f"- Current Department: {dept}\n"
+            f"- Previous Department: {prev_dept}\n"
+            f"- Last Employment Action Type: {action_type}\n"
+            f"- Last Employment Action Date: {action_date_str}\n"
+            f"- Exit Reason / Last Action Reason (if any): {exit_reason}"
         )
 
 
@@ -846,8 +912,8 @@ def _summary_employee_absence(info: Dict[str, Any], data: Dict[str, Any], lang: 
     rows = data.get("rows") or []
     emp_id = data.get("employee_id") or info.get("employee_id")
     dept = data.get("department") or info.get("department")
-
     total = len(rows)
+
     dates = [r.get("Date") for r in rows if r.get("Date")]
     start = min(dates) if dates else None
     end = max(dates) if dates else None
@@ -855,27 +921,26 @@ def _summary_employee_absence(info: Dict[str, Any], data: Dict[str, Any], lang: 
     if lang == "ar":
         if emp_id:
             if total == 0:
-                return f"لا توجد سجلات غياب للموظف {emp_id} في البيانات الحالية."
+                return f"لا توجد سجلات غياب للموظف {emp_id}."
             return (
-                f"سجلات الغياب للموظف {emp_id}:\n"
-                f"- عدد سجلات الغياب: {total}\n"
-                f"- أول غياب مسجّل: {start or 'غير متوفر'}\n"
-                f"- آخر غياب مسجّل: {end or 'غير متوفر'}"
+                f"ملخص سجلات الغياب للموظف {emp_id}:\n"
+                f"- عدد السجلات: {total}\n"
+                f"- أول غياب مسجل: {start or 'غير متوفر'}\n"
+                f"- آخر غياب مسجل: {end or 'غير متوفر'}"
             )
         if dept:
             if total == 0:
-                return f"لا توجد سجلات غياب مسجلة لقسم {dept}."
+                return f"لا توجد سجلات غياب لقسم {dept}."
             return (
-                f"سجلات الغياب لقسم {dept}:\n"
-                f"- إجمالي سجلات الغياب: {total}\n"
-                f"- أقدم غياب مسجّل: {start or 'غير متوفر'}\n"
-                f"- أحدث غياب مسجّل: {end or 'غير متوفر'}"
+                f"ملخص سجلات الغياب لقسم {dept}:\n"
+                f"- عدد السجلات: {total}\n"
+                f"- الفترة من {start or 'غير متوفر'} إلى {end or 'غير متوفر'}"
             )
         if total == 0:
             return "لا توجد سجلات غياب في النظام."
         return (
-            f"إجمالي سجلات الغياب في النظام: {total}\n"
-            f"- من {start or 'غير متوفر'} إلى {end or 'غير متوفر'}"
+            f"إجمالي سجلات الغياب: {total}\n"
+            f"- الفترة من {start or 'غير متوفر'} إلى {end or 'غير متوفر'}"
         )
     else:
         if emp_id:
@@ -907,40 +972,36 @@ def _summary_employee_delay(info: Dict[str, Any], data: Dict[str, Any], lang: st
     rows = data.get("rows") or []
     emp_id = data.get("employee_id") or info.get("employee_id")
     dept = data.get("department") or info.get("department")
-
     total = len(rows)
+
     dates = [r.get("Date") for r in rows if r.get("Date")]
     start = min(dates) if dates else None
     end = max(dates) if dates else None
 
-    delay_minutes_vals: List[float] = []
+    total_delay_minutes = 0
     for r in rows:
-        val = r.get("Delay Minutes")
-        try:
-            if val is not None:
-                delay_minutes_vals.append(float(str(val)))
-        except Exception:
-            continue
-    total_min = sum(delay_minutes_vals) if delay_minutes_vals else 0.0
+        delay_key = _nxs_find_key(r, "delay minutes") or _nxs_find_key(r, "delay")
+        val = r.get(delay_key) if delay_key else None
+        total_delay_minutes += _nxs_parse_delay_to_minutes(val)
 
     if lang == "ar":
         scope = f"الموظف {emp_id}" if emp_id else (f"قسم {dept}" if dept else "كل الموظفين")
         if total == 0:
-            return f"لا توجد سجلات تأخير مسجلة لـ {scope}."
+            return f"لا توجد سجلات تأخير شخصي لـ {scope}."
         return (
-            f"ملخص تأخيرات الحضور لـ {scope}:\n"
+            f"ملخص التأخير الشخصي لـ {scope}:\n"
             f"- عدد سجلات التأخير: {total}\n"
-            f"- مجموع دقائق التأخير (تقريبياً): {int(total_min)} دقيقة\n"
+            f"- إجمالي دقائق التأخير: {total_delay_minutes} دقيقة\n"
             f"- الفترة من {start or 'غير متوفر'} إلى {end or 'غير متوفر'}"
         )
     else:
         scope = f"employee {emp_id}" if emp_id else (f"department {dept}" if dept else "all employees")
         if total == 0:
-            return f"No delay records for {scope}."
+            return f"No personal delay records for {scope}."
         return (
-            f"Delay summary for {scope}:\n"
-            f"- Number of delay records: {total}\n"
-            f"- Total delay minutes (approx.): {int(total_min)}\n"
+            f"Personal delay summary for {scope}:\n"
+            f"- Total delay records: {total}\n"
+            f"- Total delay minutes: {total_delay_minutes} minutes\n"
             f"- From {start or 'N/A'} to {end or 'N/A'}"
         )
 
@@ -949,18 +1010,18 @@ def _summary_employee_overtime(info: Dict[str, Any], data: Dict[str, Any], lang:
     rows = data.get("rows") or []
     emp_id = data.get("employee_id") or info.get("employee_id")
     dept = data.get("department") or info.get("department")
+    total = len(rows)
 
-    total_records = len(rows)
     total_hours = 0.0
-    latest_date = None
+    latest_date: Optional[str] = None
+    detailed_lines: List[str] = []
 
-    entries: List[str] = []
     for r in rows:
-        th = r.get("Total Hours")
-        hours_val = None
+        hours_val: Optional[float] = None
         try:
-            if th is not None and str(th).strip() != "":
-                hours_val = float(str(th).replace(",", "."))
+            val = r.get("Total Hours")
+            if val is not None:
+                hours_val = float(val)
                 total_hours += hours_val
         except Exception:
             pass
@@ -969,77 +1030,68 @@ def _summary_employee_overtime(info: Dict[str, Any], data: Dict[str, Any], lang:
         if adate:
             if latest_date is None or adate > latest_date:
                 latest_date = adate
-
+        
         nd = r.get("Notification Date")
         atype = r.get("Assignment Type") or ""
         days = r.get("Assignment Days") or ""
         reason = r.get("Assignment Reason") or ""
         dept_row = r.get("Department") or ""
-
         dm_id = r.get("Duty Manager ID")
         dm_name = r.get("Duty Manager Name")
 
         if lang == "ar":
             line = f"- التاريخ: {nd or adate or 'غير متوفر'} | النوع: {atype or 'غير محدد'}"
-            if days:
-                line += f" | عدد الأيام: {days}"
-            if hours_val is not None:
-                line += f" | الساعات: {hours_val}"
-            if reason:
-                line += f" | السبب: {reason}"
-            if dept_row and (not dept or dept_row != dept):
-                line += f" | القسم: {dept_row}"
-            if dm_id or dm_name:
-                line += f" | المدير المناوب المعتمد: {dm_name or 'غير متوفر'} (ID: {dm_id or 'غير متوفر'})"
+            if days: line += f" | عدد الأيام: {days}"
+            if hours_val is not None: line += f" | الساعات: {hours_val:.1f}"
+            if reason: line += f" | السبب: {reason}"
+            if dept_row and (not dept or dept_row != dept): line += f" | القسم: {dept_row}"
+            if dm_id or dm_name: line += f" | المدير المناوب المعتمد: {dm_name or 'غير متوفر'} (ID: {dm_id or 'غير متوفر'})"
         else:
             line = f"- Date: {nd or adate or 'N/A'} | Type: {atype or 'Unspecified'}"
-            if days:
-                line += f" | Days: {days}"
-            if hours_val is not None:
-                line += f" | Hours: {hours_val}"
-            if reason:
-                line += f" | Reason: {reason}"
-            if dept_row and (not dept or dept_row != dept):
-                line += f" | Department: {dept_row}"
-            if dm_id or dm_name:
-                line += f" | Duty Manager: {dm_name or 'N/A'} (ID: {dm_id or 'N/A'})"
-
-        entries.append(line)
+            if days: line += f" | Days: {days}"
+            if hours_val is not None: line += f" | Hours: {hours_val:.1f}"
+            if reason: line += f" | Reason: {reason}"
+            if dept_row and (not dept or dept_row != dept): line += f" | Department: {dept_row}"
+            if dm_id or dm_name: line += f" | Approved Duty Manager: {dm_name or 'N/A'} (ID: {dm_id or 'N/A'})"
+        
+        detailed_lines.append(line)
 
     if lang == "ar":
         scope = f"الموظف {emp_id}" if emp_id else (f"قسم {dept}" if dept else "كل الموظفين")
-        if total_records == 0:
-            return f"لا توجد سجلات عمل إضافي مسجلة لـ {scope} في قاعدة البيانات."
-        base = (
+        if total == 0:
+            return f"لا توجد سجلات عمل إضافي لـ {scope}."
+        
+        header = (
             f"ملخص العمل الإضافي لـ {scope}:\n"
-            f"- عدد سجلات العمل الإضافي: {total_records}\n"
-            f"- مجموع الساعات (تقريبياً): {total_hours:.1f} ساعة\n"
-            f"- آخر تاريخ تكليف مسجّل: {latest_date or 'غير متوفر'}"
+            f"- عدد سجلات العمل الإضافي: {total}\n"
+            f"- إجمالي الساعات الإضافية المسجلة: {total_hours:.1f} ساعة\n"
+            f"- آخر تاريخ تكليف: {latest_date or 'غير متوفر'}\n"
+            f"\n"
+            f"تفاصيل السجلات:"
         )
-        if entries:
-            base += "\n\nتفاصيل السجلات:\n" + "\n".join(entries[:50])
-        return base
     else:
         scope = f"employee {emp_id}" if emp_id else (f"department {dept}" if dept else "all employees")
-        if total_records == 0:
-            return f"No overtime records found for {scope}."
-        base = (
+        if total == 0:
+            return f"No overtime records for {scope}."
+
+        header = (
             f"Overtime summary for {scope}:\n"
-            f"- Number of overtime records: {total_records}\n"
-            f"- Total hours (approx.): {total_hours:.1f}\n"
-            f"- Latest assignment date: {latest_date or 'N/A'}"
+            f"- Total overtime records: {total}\n"
+            f"- Total recorded overtime hours: {total_hours:.1f} hours\n"
+            f"- Most recent assignment date: {latest_date or 'N/A'}\n"
+            f"\n"
+            f"Record details:"
         )
-        if entries:
-            base += "\n\nRecords detail:\n" + "\n".join(entries[:50])
-        return base
+
+    return header + "\n" + "\n".join(detailed_lines)
 
 
 def _summary_employee_sick_leave(info: Dict[str, Any], data: Dict[str, Any], lang: str) -> str:
     rows = data.get("rows") or []
     emp_id = data.get("employee_id") or info.get("employee_id")
     dept = data.get("department") or info.get("department")
-
     total_records = len(rows)
+
     dates = [r.get("Date") for r in rows if r.get("Date")]
     start = min(dates) if dates else None
     end = max(dates) if dates else None
@@ -1067,46 +1119,78 @@ def _summary_employee_sick_leave(info: Dict[str, Any], data: Dict[str, Any], lan
 def _summary_flight_delay(info: Dict[str, Any], data: Dict[str, Any], lang: str) -> str:
     sgs_rows = data.get("sgs_rows") or []
     dep_rows = data.get("dep_rows") or []
+
     flight_number = data.get("flight_number") or info.get("flight_number")
     airline = data.get("airline") or info.get("airline")
 
     total_sgs = len(sgs_rows)
     total_dep = len(dep_rows)
-    total_all = total_sgs + total_dep
 
+    dates_sgs = [r.get("Date") for r in sgs_rows if r.get("Date")]
+    dates_dep = [r.get("Date") for r in dep_rows if r.get("Date")]
+    all_dates = dates_sgs + dates_dep
+    
+    start = min(all_dates) if all_dates else None
+    end = max(all_dates) if all_dates else None
+    
+    # حساب إجمالي دقائق التأخير SGS
+    total_sgs_delay_minutes = 0
+    for r in sgs_rows:
+        delay_code_str = str(r.get("Delay Code") or "").strip()
+        if delay_code_str:
+            try:
+                # يرجى ملاحظة: هذا يفترض أن Delay Code يمثل الدقائق،
+                # إذا كان Delay Code رمزًا فعليًا، يجب تغيير هذه المنطقية بناءً على كيفية تسجيل الدقائق
+                total_sgs_delay_minutes += int(delay_code_str)
+            except ValueError:
+                pass # تجاهل الرموز غير العددية
+
+    
     if lang == "ar":
-        header_parts = []
-        if flight_number:
-            header_parts.append(f"الرحلة {flight_number}")
-        if airline:
-            header_parts.append(f"شركة {airline}")
-        header = " و ".join(header_parts) if header_parts else "جميع الرحلات"
+        scope_flight = f" الرحلة رقم {flight_number}" if flight_number else ""
+        scope_airline = f" لشركة {airline}" if airline else ""
+        
+        header = f"ملخص تأخيرات الطيران{scope_flight}{scope_airline}:\n"
+        
+        if total_sgs == 0 and total_dep == 0:
+            return header + "لا توجد سجلات تأخير مطابقة في أي من جداول sgs_flight_delay أو dep_flight_delay."
 
-        if total_all == 0:
-            return f"لا توجد سجلات تأخير مسجلة لـ {header} في الجداول الحالية."
-
+        sgs_summary = (
+            f"- سجلات تأخير المحطة/الخدمات الأرضية (sgs_flight_delay): {total_sgs} سجل\n"
+            f"- إجمالي دقائق التأخير المحسوبة (من sgs_flight_delay): {total_sgs_delay_minutes} دقيقة"
+        )
+        dep_summary = (
+            f"- سجلات تأخير مراقبة الحركة (dep_flight_delay): {total_dep} سجل"
+        )
+        
         return (
-            f"ملخص تأخيرات الرحلات لـ {header}:\n"
-            f"- عدد سجلات التأخير في جدول المحطة (sgs_flight_delay): {total_sgs}\n"
-            f"- عدد سجلات التأخير في جدول مراقبة الحركة DEP (dep_flight_delay): {total_dep}\n"
-            f"- إجمالي سجلات التأخير: {total_all}"
+            header
+            + sgs_summary + "\n"
+            + dep_summary + "\n"
+            + f"- الفترة الزمنية التي تشملها السجلات: من {start or 'غير متوفر'} إلى {end or 'غير متوفر'}"
         )
     else:
-        header_parts = []
-        if flight_number:
-            header_parts.append(f"flight {flight_number}")
-        if airline:
-            header_parts.append(f"airline {airline}")
-        header = " & ".join(header_parts) if header_parts else "all flights"
+        scope_flight = f" flight {flight_number}" if flight_number else ""
+        scope_airline = f" for airline {airline}" if airline else ""
+        
+        header = f"Flight Delay Summary{scope_flight}{scope_airline}:\n"
+        
+        if total_sgs == 0 and total_dep == 0:
+            return header + "No matching delay records found in either sgs_flight_delay or dep_flight_delay tables."
 
-        if total_all == 0:
-            return f"No delay records found for {header} in the current tables."
+        sgs_summary = (
+            f"- Station/Ground Services Delay Records (sgs_flight_delay): {total_sgs} records\n"
+            f"- Total calculated delay minutes (from sgs_flight_delay): {total_sgs_delay_minutes} minutes"
+        )
+        dep_summary = (
+            f"- Movement Control Delay Records (dep_flight_delay): {total_dep} records"
+        )
 
         return (
-            f"Flight delay summary for {header}:\n"
-            f"- Records in station table (sgs_flight_delay): {total_sgs}\n"
-            f"- Records in DEP/TCC table (dep_flight_delay): {total_dep}\n"
-            f"- Total delay records: {total_all}"
+            header
+            + sgs_summary + "\n"
+            + dep_summary + "\n"
+            + f"- Timeframe covered by records: From {start or 'N/A'} to {end or 'N/A'}"
         )
 
 
@@ -1116,8 +1200,9 @@ def _summary_dep_employee_delay(info: Dict[str, Any], data: Dict[str, Any], lang
     dept = data.get("department") or info.get("department")
     airline = data.get("airline") or info.get("airline")
 
+    count_emp = len(rows)
+
     if emp_id:
-        count_emp = len(rows)
         if lang == "ar":
             scope_air = f" لشركة {airline}" if airline else ""
             if count_emp == 0:
@@ -1147,51 +1232,34 @@ def _summary_dep_employee_delay(info: Dict[str, Any], data: Dict[str, Any], lang
     names: Dict[str, str] = {}
     for r in rows:
         eid = r.get("Employee ID")
-        ename = r.get("Employee Name") or ""
-        if eid is None:
-            continue
-        key = str(eid)
-        counts[key] = counts.get(key, 0) + 1
-        if key not in names and ename:
-            names[key] = ename
+        ename = r.get("Employee Name") or eid
+        if eid:
+            counts[eid] = counts.get(eid, 0) + 1
+            names[eid] = str(ename).strip()
 
-    if not counts:
-        if lang == "ar":
-            return "توجد سجلات تأخير، لكن لا تحتوي على أرقام موظفين واضحة لحساب الأكثر تسبباً بالتأخيرات."
-        else:
-            return "There are DEP delay records but no clear employee IDs to determine who caused the most delays."
-
-    top_emp_id = max(counts, key=lambda k: counts[k])
-    top_count = counts[top_emp_id]
-    top_name = names.get(top_emp_id, "غير معروف")
-
+    output_lines: List[str] = []
     if lang == "ar":
-        scope_dept = f" في قسم {dept}" if dept else ""
-        return (
-            f"أكثر موظف تسبب بتأخيرات في مراقبة الحركة{scope_dept}:\n"
-            f"- الرقم الوظيفي: {top_emp_id}\n"
-            f"- الاسم (إن وُجد): {top_name}\n"
-            f"- عدد الرحلات المسجلة عليه كتأخير: {top_count}"
-        )
+        output_lines.append(f"ملخص تأخيرات مراقبة الحركة في قسم {dept} ({count_emp} سجل):")
+        for eid, count in sorted(counts.items(), key=lambda item: item[1], reverse=True):
+            output_lines.append(f"- الموظف {names.get(eid, 'غير متوفر')} (ID: {eid}): {count} سجل")
     else:
-        scope_dept = f" in department {dept}" if dept else ""
-        return (
-            f"Employee with the most DEP delays{scope_dept}:\n"
-            f"- Employee ID: {top_emp_id}\n"
-            f"- Name (if present): {top_name}\n"
-            f"- Number of delayed flights: {top_count}"
-        )
+        output_lines.append(f"DEP Delay Summary for Department {dept} ({count_emp} records):")
+        for eid, count in sorted(counts.items(), key=lambda item: item[1], reverse=True):
+            output_lines.append(f"- Employee {names.get(eid, 'N/A')} (ID: {eid}): {count} records")
+
+    return "\n".join(output_lines)
 
 
 def _summary_operational_event(info: Dict[str, Any], data: Dict[str, Any], lang: str) -> str:
     rows = data.get("rows") or []
     emp_id = data.get("employee_id") or info.get("employee_id")
     dept = data.get("department") or info.get("department")
-
     total = len(rows)
+
     dates = [r.get("Event Date") for r in rows if r.get("Event Date")]
     start = min(dates) if dates else None
     end = max(dates) if dates else None
+
     with_disc = [r for r in rows if (r.get("Disciplinary Action") or "").strip() != ""]
     cnt_disc = len(with_disc)
 
@@ -1220,10 +1288,11 @@ def _summary_operational_event(info: Dict[str, Any], data: Dict[str, Any], lang:
 def _summary_shift_report(info: Dict[str, Any], data: Dict[str, Any], lang: str) -> str:
     rows = data.get("rows") or []
     dept = data.get("department") or info.get("department")
-
     total = len(rows)
+
     on_duty = 0
     no_show = 0
+
     for r in rows:
         try:
             if r.get("On Duty") is not None:
@@ -1236,37 +1305,34 @@ def _summary_shift_report(info: Dict[str, Any], data: Dict[str, Any], lang: str)
         except Exception:
             pass
 
+    dates = [r.get("Date") for r in rows if r.get("Date")]
+    start = min(dates) if dates else None
+    end = max(dates) if dates else None
+
     if lang == "ar":
-        scope = f"قسم {dept}" if dept else "جميع الأقسام"
+        scope = f"لقسم {dept}" if dept else "الإجمالي"
         if total == 0:
-            return f"لا توجد تقارير مناوبة مسجلة لـ {scope}."
+            return f"لا توجد تقارير مناوبات مسجلة {scope}."
         return (
-            f"ملخص تقارير المناوبة لـ {scope}:\n"
-            f"- عدد تقارير المناوبة: {total}\n"
-            f"- مجموع On Duty عبر جميع التقارير: {on_duty}\n"
-            f"- مجموع No Show عبر جميع التقارير: {no_show}"
+            f"ملخص تقارير المناوبات {scope} ({total} تقرير):\n"
+            f"- إجمالي الأفراد المسجلين (On Duty) في هذه التقارير: {on_duty} فرد\n"
+            f"- إجمالي حالات الغياب المسجلة (No Show) في هذه التقارير: {no_show} حالة\n"
+            f"- الفترة من {start or 'غير متوفر'} إلى {end or 'غير متوفر'}"
         )
     else:
-        scope = f"department {dept}" if dept else "all departments"
+        scope = f"for department {dept}" if dept else "Overall"
         if total == 0:
-            return f"No shift reports found for {scope}."
+            return f"No shift reports recorded {scope}."
         return (
-            f"Shift report summary for {scope}:\n"
-            f"- Number of shift reports: {total}\n"
-            f"- Total On Duty across reports: {on_duty}\n"
-            f"- Total No Show across reports: {no_show}"
+            f"Shift Report Summary {scope} ({total} reports):\n"
+            f"- Total individuals recorded (On Duty) in these reports: {on_duty} individuals\n"
+            f"- Total absences recorded (No Show) in these reports: {no_show} cases\n"
+            f"- From {start or 'N/A'} to {end or 'N/A'}"
         )
 
 
 def _summary_airline_flight_stats(info: Dict[str, Any], data: Dict[str, Any], lang: str) -> str:
-    stats: Dict[str, int] = data.get("stats") or {}
-
-    if not stats:
-        if lang == "ar":
-            return "لا توجد سجلات كافية لحساب عدد الرحلات لكل شركة طيران."
-        else:
-            return "There are no sufficient records to compute flight counts per airline."
-
+    stats = data.get("stats") or {}
     items = sorted(stats.items(), key=lambda kv: kv[1], reverse=True)
 
     if lang == "ar":
@@ -1299,69 +1365,76 @@ def _summary_employee_profile_full(info: Dict[str, Any], tool_results: Dict[str,
     """ملخص شامل للموظف من جميع الجداول."""
     parts: List[str] = []
 
+    # 1. Profile Core
     core = _summary_employee_profile(info, tool_results.get("employee_profile", {}), lang)
     parts.append(core)
 
+    # 2. Absence
     abs_data = tool_results.get("employee_absence")
     if abs_data is not None:
         parts.append("")
         parts.append(_summary_employee_absence(info, abs_data, lang))
 
+    # 3. Delay (Personal)
     delay_data = tool_results.get("employee_delay")
     if delay_data is not None:
         parts.append("")
         parts.append(_summary_employee_delay(info, delay_data, lang))
 
+    # 4. Sick Leave
     sick_data = tool_results.get("employee_sick_leave")
     if sick_data is not None:
         parts.append("")
         parts.append(_summary_employee_sick_leave(info, sick_data, lang))
 
+    # 5. Overtime
     overtime_data = tool_results.get("employee_overtime")
     if overtime_data is not None:
         parts.append("")
         parts.append(_summary_employee_overtime(info, overtime_data, lang))
 
+    # 6. DEP Delay (Related to DEP flights)
     dep_delay_data = tool_results.get("dep_employee_delay")
     if dep_delay_data is not None:
         parts.append("")
         parts.append(_summary_dep_employee_delay(info, dep_delay_data, lang))
-
+    
+    # 7. Operational Events
     op_event_data = tool_results.get("operational_event")
     if op_event_data is not None:
         parts.append("")
         parts.append(_summary_operational_event(info, op_event_data, lang))
 
-    return "\n".join(p for p in parts if p is not None and str(p).strip() != "")
+    return "\n".join(parts)
 
 
-def build_data_summary(intent: str, intent_info: Dict[str, Any], tool_results: Dict[str, Any], lang: str) -> str:
-    """اختيار دالة التلخيص المناسبة حسب intent."""
+def build_data_summary(
+    intent: str, intent_info: Dict[str, Any], tool_results: Dict[str, Any], lang: str
+) -> str:
+    """يبني نص الملخص النهائي اعتماداً على النية والنتائج."""
+
     if intent == "employee_profile":
         return _summary_employee_profile_full(intent_info, tool_results, lang)
-    if intent == "employee_absence_summary":
+    elif intent == "employee_absence_summary":
         return _summary_employee_absence(intent_info, tool_results.get("employee_absence", {}), lang)
-    if intent == "employee_delay_summary":
+    elif intent == "employee_delay_summary":
         return _summary_employee_delay(intent_info, tool_results.get("employee_delay", {}), lang)
-    if intent == "employee_overtime_summary":
+    elif intent == "employee_overtime_summary":
         return _summary_employee_overtime(intent_info, tool_results.get("employee_overtime", {}), lang)
-    if intent == "employee_sickleave_summary":
+    elif intent == "employee_sickleave_summary":
         return _summary_employee_sick_leave(intent_info, tool_results.get("employee_sick_leave", {}), lang)
-    if intent == "flight_delay_summary":
+    elif intent == "flight_delay_summary":
         return _summary_flight_delay(intent_info, tool_results.get("flight_delay", {}), lang)
-    if intent == "dep_employee_delay_summary":
+    elif intent == "dep_employee_delay_summary":
         return _summary_dep_employee_delay(intent_info, tool_results.get("dep_employee_delay", {}), lang)
-    if intent == "operational_event_summary":
+    elif intent == "operational_event_summary":
         return _summary_operational_event(intent_info, tool_results.get("operational_event", {}), lang)
-    if intent == "shift_report_summary":
+    elif intent == "shift_report_summary":
         return _summary_shift_report(intent_info, tool_results.get("shift_report", {}), lang)
-    if intent == "airline_flight_stats":
+    elif intent == "airline_flight_stats":
         return _summary_airline_flight_stats(intent_info, tool_results.get("airline_flight_stats", {}), lang)
-
-    if lang == "ar":
-        return "تم جلب بيانات من قاعدة البيانات، لكن نوع النية غير معروف لهذا الملخص."
-    else:
-        return "Data was fetched from the database but the intent type is not recognized for summary."
+    
+    return "Data fetched from the database but the intent type is not recognized for summary."
 
 
 # =========================
@@ -1377,7 +1450,6 @@ def generate_answer_with_llm(
 ) -> str:
     data_summary = build_data_summary(intent, intent_info, tool_results, lang)
     history_text = history_as_text()
-
     lang_label = "العربية" if lang == "ar" else "English"
 
     prompt = (
@@ -1398,32 +1470,32 @@ def generate_answer_with_llm(
         + data_summary
         + "\n\n"
         + "تذكير صارم: أجب للمستخدم فقط بناءً على ما في data_summary، "
-          "وبنفس لغة lang_code المذكورة أعلاه، بدون أي JSON أو كود أو أسماء أدوات أو تنسيق غليظ **."
+        "وبنفس لغة lang_code المذكورة أعلاه، بدون أي JSON أو كود أو أسماء أدوات أو تنسيق غليظ **."
     )
 
     text = _call_llm(prompt)
+
     if text.startswith("⚠️"):
         # في حالة فشل المحرك نرجع الملخص كما هو
         return data_summary
+        
     return text
 
 
 def generate_free_talk_answer(message: str, lang: str) -> str:
     history_text = history_as_text()
     lang_label = "العربية" if lang == "ar" else "English"
-
     system = (
         "أنت TCC AI • AirportOps Analytic.\n"
         "يمكنك التحدّث بشكل عام، شرح المفاهيم، أو مساعدة المستخدم في الأسئلة غير المرتبطة مباشرة بالاستعلام عن البيانات.\n"
-        "في وضع free_talk لا تقدّم أرقاماً دقيقة من النظام، بل تحدث بشكل عام أو وجّه المستخدم لسؤال تحليلي محدد يعتمد على الأدوات.\n"
-        f"لغة الإجابة يجب أن تكون دائماً مطابقة للغة السؤال (lang_code = {lang}, {lang_label}) "
-        "إلا إذا طلب المستخدم صراحة غير ذلك داخل السؤال.\n"
-        "لا تستخدم تنسيق Markdown الغليظ (**)."
+        "في وضع free_talk لا تقدّم أرقاماً دقيقة من النظام أو تحاول تحليل بيانات، ولكن يمكنك استخدام سياق المحادثة السابق.\n"
+        "استخدم نفس لغة المستخدم (lang_code) للإجابة."
     )
-
     prompt = (
         system
         + "\n\n"
+        + f"lang_code المطلوب للإجابة = {lang} ({lang_label})\n"
+        + "\n"
         + "سجل المحادثة السابق (مختصر):\n"
         + (history_text if history_text else "(لا يوجد تاريخ سابق)")
         + "\n\n"
@@ -1433,15 +1505,13 @@ def generate_free_talk_answer(message: str, lang: str) -> str:
 
     text = _call_llm(prompt)
     if text.startswith("⚠️"):
-        if lang == "ar":
-            return "هناك مشكلة تقنية مؤقتة في محرك TCC AI. يمكنك إعادة المحاولة لاحقاً، أو طرح سؤال يعتمد على بيانات الجداول وسأستخدم أدوات البيانات مباشرة."
-        else:
-            return "There is a temporary technical issue in the TCC AI engine. You can try again later, or ask a data-based question and I'll use the data tools directly."
+        return "⚠️ حدث خطأ في التواصل مع محرك TCC AI. سأحاول استخدام أدوات البيانات مباشرة بدلاً من ذلك."
+
     return text
 
 
 # =========================
-#   الدماغ الرئيسي TCC AI
+# الدماغ الرئيسي TCC AI
 # =========================
 
 def nxs_brain(message: str) -> Tuple[str, Dict[str, Any]]:
@@ -1453,9 +1523,7 @@ def nxs_brain(message: str) -> Tuple[str, Dict[str, Any]]:
     """
     msg_clean = (message or "").strip()
     lang = detect_lang(msg_clean)
-
     logging.info("📥 سؤال جديد إلى TCC AI: %s (lang=%s)", msg_clean, lang)
-
     add_to_history("user", msg_clean)
 
     # 1) تحليل النية
@@ -1477,12 +1545,11 @@ def nxs_brain(message: str) -> Tuple[str, Dict[str, Any]]:
             tool_results["employee_delay"] = tool_employee_delay_summary(employee_id=emp_id)
             tool_results["dep_employee_delay"] = tool_dep_employee_delay_summary(employee_id=emp_id)
             tool_results["operational_event"] = tool_operational_event_summary(employee_id=emp_id)
-
             tools_used.extend(
                 [
                     "employee_profile",
                     "employee_overtime_summary",
-                    "employee_sickleave_summary",
+                    "employee_sick_leave_summary",
                     "employee_absence_summary",
                     "employee_delay_summary",
                     "dep_employee_delay_summary",
@@ -1493,121 +1560,104 @@ def nxs_brain(message: str) -> Tuple[str, Dict[str, Any]]:
     elif intent == "employee_absence_summary":
         emp_id = intent_info.get("employee_id")
         dept = intent_info.get("department")
-        start_date = intent_info.get("start_date")
-        end_date = intent_info.get("end_date")
-
-        tool_results["employee_absence"] = tool_employee_absence_summary(
-            employee_id=emp_id,
-            department=dept,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        tools_used.append("employee_absence_summary")
+        s_date = intent_info.get("start_date")
+        e_date = intent_info.get("end_date")
+        if emp_id or dept:
+            tool_results["employee_absence"] = tool_employee_absence_summary(
+                employee_id=emp_id, department=dept, start_date=s_date, end_date=e_date
+            )
+            tools_used.append("employee_absence_summary")
 
     elif intent == "employee_delay_summary":
         emp_id = intent_info.get("employee_id")
         dept = intent_info.get("department")
-        start_date = intent_info.get("start_date")
-        end_date = intent_info.get("end_date")
-
-        tool_results["employee_delay"] = tool_employee_delay_summary(
-            employee_id=emp_id,
-            department=dept,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        tools_used.append("employee_delay_summary")
+        s_date = intent_info.get("start_date")
+        e_date = intent_info.get("end_date")
+        if emp_id or dept:
+            tool_results["employee_delay"] = tool_employee_delay_summary(
+                employee_id=emp_id, department=dept, start_date=s_date, end_date=e_date
+            )
+            tools_used.append("employee_delay_summary")
 
     elif intent == "employee_overtime_summary":
         emp_id = intent_info.get("employee_id")
         dept = intent_info.get("department")
-
-        tool_results["employee_overtime"] = tool_employee_overtime_summary(
-            employee_id=emp_id,
-            department=dept,
-        )
-        tools_used.append("employee_overtime_summary")
+        if emp_id or dept:
+            tool_results["employee_overtime"] = tool_employee_overtime_summary(
+                employee_id=emp_id, department=dept
+            )
+            tools_used.append("employee_overtime_summary")
 
     elif intent == "employee_sickleave_summary":
         emp_id = intent_info.get("employee_id")
         dept = intent_info.get("department")
-
-        tool_results["employee_sick_leave"] = tool_employee_sick_leave_summary(
-            employee_id=emp_id,
-            department=dept,
-        )
-        tools_used.append("employee_sickleave_summary")
+        if emp_id or dept:
+            tool_results["employee_sick_leave"] = tool_employee_sick_leave_summary(
+                employee_id=emp_id, department=dept
+            )
+            tools_used.append("employee_sick_leave_summary")
 
     elif intent == "flight_delay_summary":
-        flight_number = intent_info.get("flight_number")
+        f_num = intent_info.get("flight_number")
         airline = intent_info.get("airline")
-        start_date = intent_info.get("start_date")
-        end_date = intent_info.get("end_date")
-
-        tool_results["flight_delay"] = tool_flight_delay_summary(
-            flight_number=flight_number,
-            airline=airline,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        tools_used.append("flight_delay_summary")
+        s_date = intent_info.get("start_date")
+        e_date = intent_info.get("end_date")
+        if f_num or airline:
+            tool_results["flight_delay"] = tool_flight_delay_summary(
+                flight_number=f_num, airline=airline, start_date=s_date, end_date=e_date
+            )
+            tools_used.append("flight_delay_summary")
 
     elif intent == "dep_employee_delay_summary":
         emp_id = intent_info.get("employee_id")
         dept = intent_info.get("department")
         airline = intent_info.get("airline")
-
-        tool_results["dep_employee_delay"] = tool_dep_employee_delay_summary(
-            employee_id=emp_id,
-            department=dept,
-            airline=airline,
-        )
-        tools_used.append("dep_employee_delay_summary")
+        if emp_id or dept:
+            tool_results["dep_employee_delay"] = tool_dep_employee_delay_summary(
+                employee_id=emp_id, department=dept, airline=airline
+            )
+            tools_used.append("dep_employee_delay_summary")
 
     elif intent == "operational_event_summary":
         emp_id = intent_info.get("employee_id")
         dept = intent_info.get("department")
-        start_date = intent_info.get("start_date")
-        end_date = intent_info.get("end_date")
-
-        tool_results["operational_event"] = tool_operational_event_summary(
-            employee_id=emp_id,
-            department=dept,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        tools_used.append("operational_event_summary")
+        s_date = intent_info.get("start_date")
+        e_date = intent_info.get("end_date")
+        if emp_id or dept:
+            tool_results["operational_event"] = tool_operational_event_summary(
+                employee_id=emp_id, department=dept, start_date=s_date, end_date=e_date
+            )
+            tools_used.append("operational_event_summary")
 
     elif intent == "shift_report_summary":
         dept = intent_info.get("department")
-        start_date = intent_info.get("start_date")
-        end_date = intent_info.get("end_date")
-
-        tool_results["shift_report"] = tool_shift_report_summary(
-            department=dept,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        tools_used.append("shift_report_summary")
+        s_date = intent_info.get("start_date")
+        e_date = intent_info.get("end_date")
+        if dept:
+            tool_results["shift_report"] = tool_shift_report_summary(
+                department=dept, start_date=s_date, end_date=e_date
+            )
+            tools_used.append("shift_report_summary")
 
     elif intent == "airline_flight_stats":
         tool_results["airline_flight_stats"] = tool_airline_flight_stats()
         tools_used.append("airline_flight_stats")
 
-    # 3) اختيار طريقة الإجابة
-    if intent == "free_talk" or not tools_used:
+    # 3) توليد الرد النهائي
+    if intent == "free_talk" or not tool_results:
+        # إذا كانت النية محادثة عامة أو لم يتم استدعاء أي أداة بنجاح
         reply = generate_free_talk_answer(msg_clean, lang)
     else:
+        # إذا تم استدعاء أداة بيانات بنجاح
         reply = generate_answer_with_llm(
-            msg_clean,
-            lang,
+            message=msg_clean,
+            lang=lang,
             intent=intent,
             intent_info=intent_info,
             tool_results=tool_results,
         )
 
     add_to_history("assistant", reply)
-
     meta: Dict[str, Any] = {
         "lang": lang,
         "intent": intent_info,
@@ -1618,7 +1668,7 @@ def nxs_brain(message: str) -> Tuple[str, Dict[str, Any]]:
 
 
 # =========================
-#       المسارات (API)
+# المسارات (API)
 # =========================
 
 @app.get("/")
@@ -1651,7 +1701,6 @@ def chat(req: ChatRequest) -> Dict[str, Any]:
             "answer": "⚠️ لم يتم استلام نص للسؤال.",
             "meta": {},
         }
-
     try:
         reply, meta = nxs_brain(msg)
         return {
@@ -1661,277 +1710,8 @@ def chat(req: ChatRequest) -> Dict[str, Any]:
         }
     except Exception as e:
         logging.exception("❌ خطأ داخلي في /chat: %s", e)
-        err_msg = "⚠️ حدث خطأ داخلي في TCC AI أثناء معالجة سؤالك."
         return {
-            "reply": err_msg,
-            "answer": err_msg,
-            "meta": {"error": str(e)},
+            "reply": "❌ حدث خطأ داخلي أثناء معالجة السؤال.",
+            "answer": "❌ حدث خطأ داخلي أثناء معالجة السؤال.",
+            "meta": {},
         }
-
-
-# =========================================
-#   Dashboard API: HR (Employees / Absence / Delay / Overtime)
-# =========================================
-
-def _nxs_parse_date_safe(value):
-    """محاولة تحويل القيمة إلى تاريخ (date) من نص أو datetime."""
-    if not value:
-        return None
-    try:
-        if isinstance(value, (_dt.date, _dt.datetime)):
-            return value.date() if isinstance(value, _dt.datetime) else value
-        if isinstance(value, str):
-            v = value.strip()
-            if not v:
-                return None
-            # إذا كانت القيمة تحتوي على وقت، نأخذ أول 10 أحرف فقط
-            if len(v) >= 10:
-                v = v[:10]
-            return _dt.date.fromisoformat(v)
-    except Exception:
-        return None
-    return None
-
-
-def _nxs_in_range(d, d_from, d_to):
-    if d is None:
-        return False
-    if d_from and d < d_from:
-        return False
-    if d_to and d > d_to:
-        return False
-    return True
-
-
-def _nxs_find_key(row: dict, target: str):
-    """
-    البحث عن مفتاح داخل السجل يحتوي على النص المطلوب (غير حساس لحالة الأحرف)
-    مثلاً target='delay minutes' سيجد 'Delay Minutes' أو 'delay_minutes'.
-    """
-    if not isinstance(row, dict):
-        return None
-    target_low = target.lower()
-    for k in row.keys():
-        if target_low in k.lower():
-            return k
-    return None
-
-
-def _nxs_parse_delay_to_minutes(raw):
-    """تحويل قيمة حقل Delay Minutes (مثل 00:20:00) إلى دقائق عددية."""
-    if raw is None:
-        return 0
-    try:
-        # قيم رقمية مباشرة
-        if isinstance(raw, (int, float)):
-            return int(raw)
-        text = str(raw).strip()
-        if not text:
-            return 0
-        # إذا كانت على شكل HH:MM:SS أو MM:SS
-        if ":" in text:
-            parts = text.split(":")
-            parts = [p or "0" for p in parts]
-            if len(parts) == 3:
-                h, m, s = parts
-            elif len(parts) == 2:
-                h, m, s = "0", parts[0], parts[1]
-            else:
-                # شكل غير متوقع، نحاول اعتباره دقائق
-                return int(float(text))
-            h = int(h)
-            m = int(m)
-            s = int(s)
-            total_minutes = h * 60 + m + (1 if s >= 30 else 0)
-            return total_minutes
-        # بدون نقطتين: نعتبرها دقائق
-        return int(float(text))
-    except Exception:
-        return 0
-
-
-def _nxs_parse_delay_to_minutes(raw):
-    """تحويل قيمة حقل Delay Minutes (مثل 00:20:00) إلى دقائق عددية."""
-    if raw is None:
-        return 0
-    # قيم رقمية مباشرة
-    try:
-        if isinstance(raw, (int, float)):
-            return int(raw)
-        text = str(raw).strip()
-        if not text:
-            return 0
-        # إذا كانت على شكل HH:MM:SS أو MM:SS
-        if ":" in text:
-            parts = text.split(":")
-            parts = [p or "0" for p in parts]
-            if len(parts) == 3:
-                h, m, s = parts
-            elif len(parts) == 2:
-                h, m, s = "0", parts[0], parts[1]
-            else:
-                # شكل غير متوقع، نحاول اعتباره دقائق
-                return int(float(text))
-            h = int(h)
-            m = int(m)
-            s = int(s)
-            total_minutes = h * 60 + m + (1 if s >= 30 else 0)
-            return total_minutes
-        # بدون نقطتين: نعتبرها دقائق
-        return int(float(text))
-    except Exception:
-        return 0
-
-
-@app.get("/dashboard/summary")
-def dashboard_summary(
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-    department: Optional[str] = None,
-):
-    """
-    ملخص علوي للوحة الموارد البشرية (موظفين، غياب، تأخير، عمل إضافي)
-    يمكن تصفيته بالتاريخ والقسم (اختياري).
-    """
-    d_from = _nxs_parse_date_safe(date_from)
-    d_to = _nxs_parse_date_safe(date_to)
-
-    # جلب البيانات الخام من Supabase
-    employees = supabase_select("employee_master_db")
-    absences = supabase_select("employee_absence")
-    delays = supabase_select("employee_delay")
-    overtime = supabase_select("employee_overtime")
-
-    def match_dept(row):
-        if not department or department == "ALL":
-            return True
-        # البحث عن أي عمود يمثل القسم
-        dept_key = _nxs_find_key(row, "department") or "Department"
-        dept_val = row.get(dept_key)
-        if not isinstance(dept_val, str):
-            return False
-        return dept_val.strip().lower() == department.strip().lower()
-
-    # إجمالي الموظفين
-    employees_filtered = [r for r in employees if match_dept(r)]
-    total_employees = len(employees_filtered)
-
-    # الغياب (عدد السجلات في الفترة)
-    total_absence_days = 0
-    all_absence_dates = []
-    for r in absences:
-        if not match_dept(r):
-            continue
-        d = _nxs_parse_date_safe(r.get("Date"))
-        if d:
-            all_absence_dates.append(d)
-        if d_from or d_to:
-            if not _nxs_in_range(d, d_from, d_to):
-                continue
-        total_absence_days += 1
-
-    # دقائق التأخير (كناتج دقائق عددية)
-    total_delay_minutes = 0
-    for r in delays:
-        if not match_dept(r):
-            continue
-        d = _nxs_parse_date_safe(r.get("Date"))
-        if d_from or d_to:
-            if not _nxs_in_range(d, d_from, d_to):
-                continue
-        delay_key = _nxs_find_key(r, "delay minutes") or _nxs_find_key(r, "delay")
-        val = r.get(delay_key) if delay_key else None
-        total_delay_minutes += _nxs_parse_delay_to_minutes(val)
-
-    # عمل إضافي (مجموع الساعات)
-    total_overtime_hours = 0.0
-    for r in overtime:
-        if not match_dept(r):
-            continue
-        d = _nxs_parse_date_safe(r.get("Assignment Date") or r.get("Date"))
-        if d_from or d_to:
-            if not _nxs_in_range(d, d_from, d_to):
-                continue
-        val = r.get("Total Hours") or r.get("Total_Hours")
-        try:
-            if val is not None:
-                total_overtime_hours += float(str(val))
-        except Exception:
-            continue
-
-    # نطاق فعلي للغياب (في حال لم يرسل المستخدم تواريخ)
-    if all_absence_dates:
-        real_from = min(all_absence_dates)
-        real_to = max(all_absence_dates)
-    else:
-        real_from = d_from or _dt.date.today()
-        real_to = d_to or _dt.date.today()
-
-    return {
-        "total_employees": total_employees,
-        "total_absence_days": total_absence_days,
-        "total_delay_minutes": total_delay_minutes,
-        "total_overtime_hours": total_overtime_hours,
-        "date_from": (d_from or real_from).isoformat(),
-        "date_to": (d_to or real_to).isoformat(),
-        "department": department or "ALL",
-    }
-
-
-@app.get("/dashboard/absence-by-month")
-def dashboard_absence_by_month(
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-):
-    """
-    توزيع الغيابات شهرياً (Jan..Dec) لكل قسم.
-    تُستخدم في الرسم الخطي في واجهة الداشبورد.
-    """
-    d_from = _nxs_parse_date_safe(date_from)
-    d_to = _nxs_parse_date_safe(date_to)
-
-    absences = supabase_select("employee_absence")
-
-    # تحضير مصفوفة (قسم -> 12 شهر)
-    dept_to_counts: Dict[str, List[int]] = {}
-    all_dates = []
-
-    for r in absences:
-        d = _nxs_parse_date_safe(r.get("Date"))
-        if not d:
-            continue
-        all_dates.append(d)
-        if d_from or d_to:
-            if not _nxs_in_range(d, d_from, d_to):
-                continue
-        dept = r.get("Department") or "غير محدد"
-        if dept not in dept_to_counts:
-            dept_to_counts[dept] = [0] * 12
-        idx = d.month - 1  # 0..11
-        dept_to_counts[dept][idx] += 1
-
-    months_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-    departments = sorted(dept_to_counts.keys())
-    matrix = [dept_to_counts[d] for d in departments]
-
-    if all_dates:
-        real_from = min(all_dates)
-        real_to = max(all_dates)
-    else:
-        real_from = d_from or _dt.date.today()
-        real_to = d_to or _dt.date.today()
-
-    return {
-        "months": months_labels,
-        "departments": departments,
-        "matrix": matrix,
-        "date_from": (d_from or real_from).isoformat(),
-        "date_to": (d_to or real_to).isoformat(),
-    }
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("nxs_app:app", host="0.0.0.0", port=8000, reload=True)
