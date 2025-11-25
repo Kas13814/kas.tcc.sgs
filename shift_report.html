@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en-GB" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TCC • Shift Summary</title>
+
+<style>
+:root{
+  --bg:#F6F4F1; --card:#FAFAFA; --text:#0F1220; --muted:#6B7280;
+  --brand:#22D3A6; --accent:#6D28D9; --ring:#E8E8E8;
+  --shadow:0 10px 30px rgba(2,8,23,.12); --radius:22px;
+}
+html[data-theme="dark"]{
+  --bg:#000; --card:#141414; --text:#E6E7EB; --muted:#A0A6AE;
+  --ring:#2A2A2A; --brand:#1A1A1A; --accent:#1A1A1A;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+
+/* الصفحة ثابتة بلا تمرير */
+html,body{
+  height:100%;
+  margin:0;
+  overflow:hidden; /* يمنع تمرير الصفحة */
+  font:14px/1.5 "Segoe UI",Inter,Roboto,system-ui,-apple-system,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 800px at 85% -10%, color-mix(in oklab, var(--brand) 20%, transparent), transparent 60%),
+    radial-gradient(1000px 700px at -10% 100%, color-mix(in oklab, var(--brand) 20%, transparent), transparent 55%),
+    var(--bg);
+}
+
+.container{max-width:1120px;margin:32px auto;padding:0 16px}
+.header{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-bottom:18px}
+.btn{
+  padding:9px 14px;border-radius:12px;cursor:pointer;
+  border:1px solid var(--ring);background:var(--card);color:var(--text);
+}
+.btn[data-variant="primary"]{background:#22D3A6;color:#fff;border:0}
+.btn.small{padding:6px 10px;font-size:12px;border-radius:10px}
+.btn.group{background:#F3F4F6}
+html[data-theme="dark"] .btn.group{background:#1c1c1c}
+
+.panel{
+  background:var(--card);
+  border:1px solid var(--ring);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  display:flex;
+  flex-direction:column;
+  height:80vh;
+}
+.toolbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--ring)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+
+/* التمرير داخل النموذج */
+.form-wrapper{
+  padding:18px;
+  overflow:auto;
+  flex:1;
+}
+.form-wrapper::-webkit-scrollbar { width: 4px; }
+.form-wrapper::-webkit-scrollbar-thumb { background:#D5D5D5; border-radius:8px; }
+.form-wrapper::-webkit-scrollbar-thumb:hover { background:#555555; }
+
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form .full{grid-column:1/-1}
+
+.section{
+  grid-column:1/-1; display:flex;align-items:center;gap:10px;
+  margin:8px 0 4px; font-weight:700; color:var(--text);
+}
+.section .line{flex:1;height:1px;background:var(--ring);border-radius:1px}
+
+.controls-row{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px}
+
+label{display:block;color:var(--muted);font-size:12px;margin:7px 0 6px}
+.input{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--ring);background:var(--card);color:var(--text)}
+textarea.input{min-height:90px;resize:vertical}
+
+.hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <a href="index.html" class="btn">⟵ Back</a>
+    <a href="Home.html" class="btn">🏠 Home</a>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <div><b>TCC • Shift Summary</b></div>
+      <div class="btn-row">
+        <button type="button" id="clearBtn" class="btn">Clear</button>
+        <button type="button" id="submitBtn" class="btn" data-variant="primary">Submit</button>
+      </div>
+    </div>
+
+    <div class="form-wrapper">
+      <form class="form" id="form">
+
+        <!-- General -->
+        <div class="section"><span>General Information</span><div class="line"></div></div>
+        <div>
+          <label>Date</label>
+          <input class="input" type="text" placeholder="DD-MM-YYYY">
+        </div>
+        <div>
+          <label>Shift</label>
+          <select class="input">
+            <option>Shift A</option><option>Shift B</option><option>Shift C</option>
+          </select>
+        </div>
+        <div>
+          <label>Department</label>
+          <select class="input">
+            <option>TCC</option><option>FIC Saudia</option><option>FIC Nas</option><option>LC Saudia</option><option>LC Foreign</option>
+          </select>
+        </div>
+
+        <!-- Control -->
+        <div class="section"><span>Control Team</span><div class="line"></div></div>
+        <div class="controls-row">
+          <button type="button" id="toggleControl2" class="btn small group">Show/Hide Control 2</button>
+        </div>
+        <div data-field="Control1ID">
+          <label>Control 1 ID</label>
+          <input class="input" type="text">
+        </div>
+        <div data-field="Control1Start">
+          <label>Control 1 Start Time</label>
+          <input class="input" type="text" placeholder="HH:mm">
+        </div>
+        <div data-field="Control1End">
+          <label>Control 1 End Time</label>
+          <input class="input" type="text" placeholder="HH:mm">
+        </div>
+
+        <!-- Control 2 (مخفي افتراضياً) -->
+        <div data-field="Control2ID" class="hidden">
+          <label>Control 2 ID</label>
+          <input class="input" type="text">
+        </div>
+        <div data-field="Control2Start" class="hidden">
+          <label>Control 2 Start Time</label>
+          <input class="input" type="text" placeholder="HH:mm">
+        </div>
+        <div data-field="Control2End" class="hidden">
+          <label>Control 2 End Time</label>
+          <input class="input" type="text" placeholder="HH:mm">
+        </div>
+
+        <!-- Duty Managers -->
+        <div class="section"><span>Duty Managers</span><div class="line"></div></div>
+        <div class="controls-row">
+          <button type="button" id="dmShowAllHalls" class="btn small group">Show All Halls (hide others)</button>
+          <button type="button" id="dmShowSplit" class="btn small group">Show Domestic + Int/Foreign</button>
+        </div>
+        <div data-field="DM_Domestic_ID">
+          <label>Duty Manager Domestic ID</label>
+          <input class="input" type="text">
+        </div>
+        <div data-field="DM_IntFor_ID">
+          <label>Duty Manager International+Foreign ID</label>
+          <input class="input" type="text">
+        </div>
+        <div data-field="DM_AllHalls_ID" class="hidden">
+          <label>Duty Manager All Halls ID</label>
+          <input class="input" type="text">
+        </div>
+
+        <!-- Supervisors -->
+        <div class="section"><span>Supervisors</span><div class="line"></div></div>
+        <div class="controls-row">
+          <button type="button" id="supShowAllHalls" class="btn small group">Show All Halls (hide others)</button>
+          <button type="button" id="supShowSplit" class="btn small group">Show Domestic + Int/Foreign</button>
+        </div>
+        <div data-field="Sup_Domestic_ID">
+          <label>Supervisor Domestic ID</label>
+          <input class="input" type="text">
+        </div>
+        <div data-field="Sup_IntFor_ID">
+          <label>Supervisor International+Foreign ID</label>
+          <input class="input" type="text">
+        </div>
+        <div data-field="Sup_AllHalls_ID" class="hidden">
+          <label>Supervisor All Halls ID</label>
+          <input class="input" type="text">
+        </div>
+
+        <!-- Staffing -->
+        <div class="section"><span>Staffing</span><div class="line"></div></div>
+        <div>
+          <label>On Duty</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>No Show</label>
+          <input class="input" type="number">
+        </div>
+
+        <!-- Equipment -->
+        <div class="section"><span>Equipment Status</span><div class="line"></div></div>
+        <div>
+          <label>Cars In Service</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Cars Out Of Service</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Wireless Devices In Service</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Wireless Devices Out Of Service</label>
+          <input class="input" type="number">
+        </div>
+
+        <!-- Arrivals -->
+        <div class="section"><span>Flight Stats — Arrivals</span><div class="line"></div></div>
+        <div>
+          <label>Arrivals Domestic</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Delayed Arrivals Domestic</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Arrivals International+Foreign</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Delayed Arrivals International+Foreign</label>
+          <input class="input" type="number">
+        </div>
+
+        <!-- Departures -->
+        <div class="section"><span>Flight Stats — Departures</span><div class="line"></div></div>
+        <div>
+          <label>Departures Domestic</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Delayed Departures Domestic</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Departures International+Foreign</label>
+          <input class="input" type="number">
+        </div>
+        <div>
+          <label>Delayed Departures International+Foreign</label>
+          <input class="input" type="number">
+        </div>
+
+        <!-- Comments -->
+        <div class="section"><span>Comments</span><div class="line"></div></div>
+        <div class="full">
+          <label>Comments Domestic</label>
+          <textarea class="input"></textarea>
+        </div>
+        <div class="full">
+          <label>Comments International+Foreign</label>
+          <textarea class="input"></textarea>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+/* أدوات صغيرة */
+const $ = (sel,root=document)=>root.querySelector(sel);
+const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+const hide = (el)=>el.classList.add('hidden');
+const show = (el)=>el.classList.remove('hidden');
+const byField = (name)=>document.querySelector(`[data-field="${name}"]`);
+
+/* —— Control 2 toggle —— */
+$('#toggleControl2').addEventListener('click', ()=>{
+  ['Control2ID','Control2Start','Control2End'].forEach(f=>{
+    const el = byField(f);
+    el.classList.toggle('hidden');
+  });
+});
+
+/* —— Duty Managers logic —— 
+   - Show All Halls (hide others)
+   - Show Domestic + Int/Foreign (hide All Halls)
+*/
+const dmDom = byField('DM_Domestic_ID');
+const dmIF  = byField('DM_IntFor_ID');
+const dmAll = byField('DM_AllHalls_ID');
+
+$('#dmShowAllHalls').addEventListener('click', ()=>{
+  hide(dmDom); hide(dmIF);
+  show(dmAll); // عند إخفاء الحقلين الآخرين يتم إظهار All Halls
+});
+
+$('#dmShowSplit').addEventListener('click', ()=>{
+  show(dmDom); show(dmIF);
+  hide(dmAll);
+});
+
+/* —— Supervisors logic —— 
+   - Show All Halls (hide others)
+   - Show Domestic + Int/Foreign (hide All Halls)
+*/
+const supDom = byField('Sup_Domestic_ID');
+const supIF  = byField('Sup_IntFor_ID');
+const supAll = byField('Sup_AllHalls_ID');
+
+$('#supShowAllHalls').addEventListener('click', ()=>{
+  hide(supDom); hide(supIF);
+  show(supAll); // عند إخفاء الحقلين الآخرين يتم إظهار All Halls
+});
+
+$('#supShowSplit').addEventListener('click', ()=>{
+  show(supDom); show(supIF);
+  hide(supAll);
+});
+
+/* أزرار أعلى النموذج */
+$('#clearBtn').addEventListener('click', ()=>{
+  const form = $('#form');
+  form.reset?.();
+  // ارجاع الوضع الافتراضي: Control2 مخفي، Duty/Sup على وضع Split
+  ['Control2ID','Control2Start','Control2End'].forEach(f=>hide(byField(f)));
+  show(dmDom); show(dmIF); hide(dmAll);
+  show(supDom); show(supIF); hide(supAll);
+  // ارجاع التمرير لأعلى
+  $('.form-wrapper').scrollTop = 0;
+});
+
+$('#submitBtn').addEventListener('click', ()=>{
+  // هنا تضع منطق الإرسال الخاص بك (Power Automate إلخ)
+  alert('Saved ✓');
+});
+</script>
+</body>
+</html>

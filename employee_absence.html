@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en-GB" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Employee Absence</title>
+
+<!-- Boot: theme -->
+<script>
+(function(){
+  try{
+    var KEY='theme', LEGACY='sgs_theme';
+    function resolveSystem(){return (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}
+    function applyTheme(v){
+      var t=v||localStorage.getItem(KEY)||localStorage.getItem(LEGACY)||'light';
+      if(t==='system') t=resolveSystem();
+      document.documentElement.setAttribute('data-theme',t);
+    }
+    applyTheme();
+    window.addEventListener('storage',e=>{ if(e.key===KEY||e.key===LEGACY) applyTheme(e.newValue); });
+  }catch(e){}
+})();
+</script>
+
+<style>
+:root{
+  --bg:#F6F4F1; --card:#FAFAFA; --text:#0F1220; --muted:#6B7280;
+  --brand:#22D3A6; --accent:#6D28D9; --ring:#E8E8E8;
+  --shadow:0 10px 30px rgba(2,8,23,.12); --radius:22px;
+}
+[data-theme="dark"]{
+  --bg:#0B0B0C; --card:#111213; --text:#E5E7EB; --muted:#94A3B8;
+  --brand:#22D3A6; --accent:#8B5CF6; --ring:#2A2B2C; --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{min-height:100%;overflow:auto} /* ← السماح بالتمرير بدل إخفائه */
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 800px at 85% -10%, color-mix(in oklab, var(--brand) 20%, transparent), transparent 60%),
+    radial-gradient(1000px 700px at -10% 100%, color-mix(in oklab, var(--brand) 20%, transparent), transparent 55%),
+    var(--bg);
+  color:var(--text);
+  font:14px/1.5 "Segoe UI",Inter,Roboto,system-ui,-apple-system,sans-serif;
+}
+.container{max-width:1120px;margin:32px auto;padding:0 16px}
+.header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+.title{font-size:18px;font-weight:700}
+.btn{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--ring);background:var(--card);color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;text-decoration:none}
+.panel{background:var(--card);border:1px solid var(--ring);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form .full{grid-column:1/-1}
+label{display:block;color:var(--muted);font-size:12px;margin:7px 0 6px}
+input,select,textarea{
+  width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--ring);outline:none;background:var(--card);color:var(--text)
+}
+textarea{min-height:90px;resize:vertical}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.3px}
+input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 35%, transparent)}
+.toast{position:fixed;right:16px;bottom:16px;background:#111827;color:#F9FAFB;padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);display:none;z-index:9999}
+.toast.ok{background:linear-gradient(135deg,#16A34A,#22D3A6)}
+.toast.err{background:linear-gradient(135deg,#EF4444,#F14668)}
+@media (max-width:720px){
+  .form{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">Employee Absence</div>
+    <a href="‏‏‏‏‏‏Home.html" class="btn">⟵ Back</a>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <div>
+        <div style="font-weight:700;font-size:16px">Employee Absence</div>
+        <div style="color:var(--muted);font-size:12px">Absence notifications & investigation.</div>
+      </div>
+      <div><button id="submitBtn" class="btn" style="background:var(--brand);color:#fff;border-color:transparent">Submit</button></div>
+    </div>
+
+    <!-- نموذج ثابت ليظهر دائمًا حتى لو تعطّل JS -->
+    <form id="dynForm" class="form" novalidate>
+      <div>
+        <label for="f_Date">Date *</label>
+        <input id="f_Date" type="text" class="mono" data-mask="date" inputmode="numeric" maxlength="10"
+               placeholder="DD-MM-YYYY" pattern="^([0-2]\\d|3[01])-(0\\d|1[0-2])-\\d{4}$" required/>
+      </div>
+
+      <div>
+        <label for="f_Shift">Shift</label>
+        <select id="f_Shift">
+          <option>Shift A</option>
+          <option>Shift B</option>
+          <option>Shift C</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="f_Department">Department</label>
+        <select id="f_Department">
+          <option>TCC</option>
+          <option>FIC Saudia</option>
+          <option>FIC Nas</option>
+          <option>LC Saudia</option>
+          <option>LC Foreign</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="f_EmployeeID">Employee ID *</label>
+        <input id="f_EmployeeID" type="text" required/>
+      </div>
+
+      <div class="full">
+        <label for="f_Notes">Notes</label>
+        <textarea id="f_Notes" placeholder="Optional notes..."></textarea>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast">Saved</div>
+
+<script>
+/* ===== إعدادات عامة ===== */
+const FLOW_URL = "https://default60dea775d71f4a6ea493d06d9b2ab2.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/dafa982898ef44978d510d837ba1a83d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=p2CGh1U_zV5R4_brhDE48bu2OpzdZqzvFt3Nfm84row";
+
+/* ===== Helpers ===== */
+function normalizeDigits(s){
+  if(!s) return s;
+  const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+  return String(s).replace(/[٠-٩]/g,ch=>map[ch]);
+}
+function toDDMMYYYY(s){
+  s=normalizeDigits(s)||'';
+  if(/^\d{2}-\d{2}-\d{4}$/.test(s)) return s;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    const y=s.slice(0,4),m=s.slice(5,7),d=s.slice(8,10);
+    return `${d}-${m}-${y}`;
+  }
+  return s;
+}
+function ddmmyyyyToISO(s){
+  if(!s) return '';
+  s = s.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^([0-2]\d|3[01])-(0\d|1[0-2])-(\d{4})$/);
+  if(!m) return '';
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+function to24h(t){
+  t=normalizeDigits(t)||'';
+  const m=t.match(/(\d{1,2}):(\d{2})/);
+  if(!m) return '';
+  let hh=Math.max(0,Math.min(23,parseInt(m[1],10)||0));
+  const mm=m[2];
+  return String(hh).padStart(2,'0')+':'+mm;
+}
+function showToast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.toggle('ok',!isErr);
+  t.classList.toggle('err',isErr);
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none',2600);
+}
+function attachMasks(root){
+  root.querySelectorAll('input[data-mask="time"]').forEach(el=>{
+    el.addEventListener('input',()=>{
+      let v=normalizeDigits(el.value).replace(/[^0-9]/g,'').slice(0,4);
+      if(v.length>=3) v=v.slice(0,2)+':'+v.slice(2);
+      el.value=v;
+    });
+    el.addEventListener('blur',()=>{ if(/^(\d{1,2}):(\d{2})$/.test(el.value)) el.value=to24h(el.value); });
+  });
+  root.querySelectorAll('input[data-mask="date"]').forEach(el=>{
+    el.addEventListener('input',()=>{
+      let v=normalizeDigits(el.value).replace(/[^0-9]/g,'').slice(0,8);
+      if(v.length>=5) v=v.slice(0,2)+'-'+v.slice(2,4)+'-'+v.slice(4);
+      else if(v.length>=3) v=v.slice(0,2)+'-'+v.slice(2);
+      el.value=v;
+    });
+  });
+}
+
+/* ===== Init & Submit ===== */
+attachMasks(document);
+
+document.getElementById('submitBtn').addEventListener('click', async (e)=>{
+  e.preventDefault();
+
+  const f_Date = document.getElementById('f_Date');
+  const f_Shift = document.getElementById('f_Shift');
+  const f_Department = document.getElementById('f_Department');
+  const f_EmployeeID = document.getElementById('f_EmployeeID');
+  const f_Notes = document.getElementById('f_Notes');
+
+  // read + normalize
+  let DateUI = toDDMMYYYY(f_Date.value || '');
+  let EmployeeID = (normalizeDigits(f_EmployeeID.value||'')).trim();
+
+  // validate minimal
+  let ok = true;
+  function mark(el, good){ el.style.borderColor = good ? 'var(--ring)' : 'crimson'; if(!good) ok=false; }
+
+  // pattern check for date
+  const dateRx = /^([0-2]\d|3[01])-(0\d|1[0-2])-\d{4}$/;
+  mark(f_Date, dateRx.test(DateUI));
+  mark(f_EmployeeID, !!EmployeeID);
+
+  if(!ok){ showToast('Please fill/format required fields (DD-MM-YYYY).', true); return; }
+
+  const isoDate = ddmmyyyyToISO(DateUI);
+  if(!isoDate){ showToast('Invalid Date: use DD-MM-YYYY (e.g. 20-09-2025)', true); return; }
+
+  const postData = {
+    FormId: "employee_absence",
+    SubmittedAt: new Date().toISOString(),
+    Date: isoDate,                         // YYYY-MM-DD for Flow schema
+    EmployeeID: EmployeeID,
+    Shift: (f_Shift.value || ''),
+    Department: (f_Department.value || ''),
+    Notes: (f_Notes.value || ''),
+    data: { Date: DateUI, EmployeeID, Shift:f_Shift.value||'', Department:f_Department.value||'', Notes:f_Notes.value||'' }
+  };
+
+  try{
+    const r = await fetch(FLOW_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(postData)
+    });
+    if(!r.ok){
+      let txt='HTTP '+r.status;
+      try{ txt = await r.text() || txt }catch(_){}
+      throw new Error(txt);
+    }
+    showToast('Saved successfully ✓');
+    document.getElementById('dynForm').reset();
+  }catch(e){
+    showToast('Error: '+(e.message||'Failed'), true);
+    console.error('Flow error:', e);
+  }
+});
+</script>
+</body>
+</html>

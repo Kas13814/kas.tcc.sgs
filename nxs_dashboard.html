@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>NXS • لوحة تشغيل الموارد البشرية</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- خط -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #020617;
+      --bg-card: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.16);
+      --text-main: #e5e7eb;
+      --text-soft: #9ca3af;
+      --border-soft: rgba(148, 163, 184, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+    }
+
+    /* شريط التنقل العلوي */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 18px;
+      background: radial-gradient(circle at top, #020617 0, #020617 45%, #000 100%);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-logo {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+    }
+
+    .nav-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      background: #020617;
+      color: #e5e7eb;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .nav-btn span.icon {
+      font-size: 0.9rem;
+    }
+
+    .nav-btn:hover {
+      background: #020617;
+      border-color: var(--accent);
+    }
+
+    .nav-btn.active {
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      border-color: transparent;
+      color: #020617;
+      box-shadow: 0 8px 26px rgba(56, 189, 248, 0.55);
+    }
+
+    /* الصفحة */
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px 20px 40px;
+    }
+
+    header.page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .header-main h1 {
+      font-size: 1.4rem;
+      margin-bottom: 4px;
+    }
+
+    .header-main p {
+      font-size: 0.85rem;
+      color: var(--text-soft);
+    }
+
+    .header-sub {
+      text-align: left;
+      font-size: 0.78rem;
+      color: var(--text-soft);
+    }
+
+    /* شريط الفلاتر */
+    .filters-bar {
+      margin-bottom: 18px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), #020617 55%);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .filters-bar label {
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      margin-inline-start: 4px;
+    }
+
+    .filters-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* مربع تاريخ مطوّر (ستايل حديث) */
+    .date-pill {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      background: #020617;
+      padding-inline: 10px;
+      padding-block: 4px;
+    }
+
+    .date-pill input[type="date"] {
+      border: none;
+      background: transparent;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      padding: 4px 4px;
+      outline: none;
+    }
+
+    .date-pill label {
+      font-size: 0.72rem;
+      color: var(--text-soft);
+      margin-inline-end: 6px;
+      white-space: nowrap;
+    }
+
+    .date-pill span.icon {
+      font-size: 0.9rem;
+      color: var(--accent);
+      margin-inline-start: 4px;
+    }
+
+    /* أزرار الأقسام */
+    .dept-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .dept-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      background: #020617;
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: all 0.18s ease-out;
+    }
+
+    .dept-pill.active {
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      color: #020617;
+      border-color: transparent;
+      box-shadow: 0 6px 18px rgba(56, 189, 248, 0.5);
+    }
+
+    .filters-actions {
+      display: flex;
+      gap: 6px;
+      margin-inline-start: auto;
+    }
+
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      padding: 7px 12px;
+      font-size: 0.78rem;
+      background: transparent;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* الكروت العلوية */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric-card {
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95) 0, #020617 55%);
+      border-radius: 20px;
+      padding: 10px 14px;
+      border: 1px solid rgba(148, 163, 184, 0.65);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.98);
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 1.45rem;
+      font-weight: 600;
+    }
+
+    .metric-sub {
+      font-size: 0.75rem;
+      color: var(--text-soft);
+      margin-top: 4px;
+    }
+
+    /* أسفل: الرسم فقط بعرض كامل */
+    .bottom-grid {
+      margin-top: 10px;
+    }
+
+    .chart-card {
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.9) 0, #020617 50%, #020617 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.60);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.95);
+      padding: 14px 18px;
+      min-height: 260px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .chart-title {
+      font-size: 0.9rem;
+    }
+
+    .chart-sub {
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      margin-bottom: 10px;
+    }
+
+    .chart-legend {
+      font-size: 0.74rem;
+      color: var(--text-soft);
+    }
+
+    canvas {
+      width: 100% !important;
+      max-height: 260px;
+    }
+
+    @media (max-width: 1024px) {
+      .metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding-inline: 12px;
+      }
+      header.page-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .metrics-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .filters-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- شريط التنقل الموحد -->
+  <div class="top-nav">
+    <div class="nav-left">
+      <div class="nav-logo">NXS • AirportOps</div>
+    </div>
+    <div class="nav-right">
+      <button class="nav-btn" onclick="window.location.href='index.html'">
+        <span class="icon">🤖</span>
+        <span>الذكاء الاصطناعي</span>
+      </button>
+      <button class="nav-btn active" onclick="window.location.href='nxs_dashboard.html'">
+        <span class="icon">📊</span>
+        <span>لوحة البيانات</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="page">
+    <header class="page-header">
+      <div class="header-main">
+        <h1>لوحة تشغيل الموارد البشرية</h1>
+        <p>متابعة عدد الموظفين، الغيابات، التأخير، والعمل الإضافي بشكل مباشر من البيانات الفعلية.</p>
+      </div>
+      <div class="header-sub">
+        <div>الرسم الخطي يعرض الغيابات شهرياً (Jan → Dec)، مع إمكانية اختيار القسم من الأزرار.</div>
+      </div>
+    </header>
+
+    <!-- شريط الفلاتر -->
+    <section class="filters-bar">
+      <div class="filters-group">
+        <div class="date-pill">
+          <label for="fromDate">من تاريخ</label>
+          <input type="date" id="fromDate" />
+          <span class="icon">📅</span>
+        </div>
+
+        <div class="date-pill">
+          <label for="toDate">إلى</label>
+          <input type="date" id="toDate" />
+          <span class="icon">📅</span>
+        </div>
+      </div>
+
+      <div class="filters-group">
+        <label>الأقسام</label>
+        <div id="deptButtons" class="dept-buttons">
+          <!-- الأزرار تُنشأ ديناميكياً من البيانات -->
+        </div>
+      </div>
+
+      <div class="filters-actions">
+        <button class="btn-ghost" id="resetFilters">إعادة التعيين</button>
+      </div>
+    </section>
+
+    <!-- الكروت العلوية -->
+    <section class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">إجمالي الموظفين</div>
+        <div class="metric-value" id="totalEmployees">–</div>
+        <div class="metric-sub" id="summaryDeptLabel"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">أيام الغياب (ضمن الفترة)</div>
+        <div class="metric-value" id="totalAbsence">–</div>
+        <div class="metric-sub" id="summaryDateRange"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">مجموع التأخير</div>
+        <div class="metric-value" id="totalDelay">–</div>
+        <div class="metric-sub">إجمالي التأخير لجميع سجلات الموظفين في الفترة المحددة.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">ساعات العمل الإضافي</div>
+        <div class="metric-value" id="totalOvertime">–</div>
+        <div class="metric-sub">إجمالي الساعات المسجّلة للعمل الإضافي في الفترة.</div>
+      </div>
+    </section>
+
+    <!-- الرسم -->
+    <section class="bottom-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">أيام الغياب حسب الشهر</div>
+          <div class="chart-legend" id="chartRangeLabel"></div>
+        </div>
+        <div class="chart-sub">يمكنك الضغط على أزرار الأقسام لعرض خط واحد لقسم محدد أو جميع الأقسام معاً.</div>
+        <canvas id="absenceChart"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000"; // غيّرها إذا كان الخادم على عنوان آخر
+
+    let absenceChartInstance = null;
+    let absenceData = { months: [], departments: [], matrix: [], date_from: "", date_to: "" };
+    let activeDept = "ALL";
+
+    function buildSummaryQueryString() {
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+
+      const params = new URLSearchParams();
+      if (from) params.set("date_from", from);
+      if (to) params.set("date_to", to);
+      if (activeDept && activeDept !== "ALL") params.set("department", activeDept);
+
+      const qs = params.toString();
+      return qs ? "?" + qs : "";
+    }
+
+    function buildDateOnlyQueryString() {
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+
+      const params = new URLSearchParams();
+      if (from) params.set("date_from", from);
+      if (to) params.set("date_to", to);
+
+      const qs = params.toString();
+      return qs ? "?" + qs : "";
+    }
+
+    function formatDelayMinutes(totalMinutes) {
+      const minutes = Math.max(0, Math.round(totalMinutes || 0));
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      if (hours === 0) {
+        return mins + "min";
+      }
+      if (mins === 0) {
+        return hours + "hr";
+      }
+      return hours + "hr " + mins + "min";
+    }
+
+    async function loadSummary() {
+      const qs = buildSummaryQueryString();
+      const url = API_BASE + "/dashboard/summary" + qs;
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.error("Summary error:", await res.text());
+          return;
+        }
+        const data = await res.json();
+
+        document.getElementById("totalEmployees").textContent =
+          data.total_employees.toLocaleString("en-US");
+        document.getElementById("totalAbsence").textContent =
+          data.total_absence_days.toLocaleString("en-US");
+
+        document.getElementById("totalDelay").textContent =
+          formatDelayMinutes(data.total_delay_minutes);
+
+        document.getElementById("totalOvertime").textContent =
+          Number(data.total_overtime_hours || 0).toLocaleString("en-US", {
+            maximumFractionDigits: 1,
+          });
+
+        const deptLabel =
+          data.department && data.department !== "ALL"
+            ? "القسم الحالي: " + data.department
+            : "كل الأقسام";
+
+        document.getElementById("summaryDeptLabel").textContent = deptLabel;
+
+        const rangeText = "من " + data.date_from + " إلى " + data.date_to;
+        document.getElementById("summaryDateRange").textContent = rangeText;
+      } catch (err) {
+        console.error("Summary exception:", err);
+      }
+    }
+
+    async function loadAbsenceMonthly() {
+      const qs = buildDateOnlyQueryString();
+      const url = API_BASE + "/dashboard/absence-by-month" + qs;
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.error("Absence-by-month error:", await res.text());
+          return;
+        }
+        const data = await res.json();
+        absenceData = data;
+
+        document.getElementById("chartRangeLabel").textContent =
+          "من " + data.date_from + " إلى " + data.date_to;
+
+        buildDeptButtons();
+        renderAbsenceChart();
+      } catch (err) {
+        console.error("Absence-by-month exception:", err);
+      }
+    }
+
+    function buildDeptButtons() {
+      const container = document.getElementById("deptButtons");
+      container.innerHTML = "";
+
+      const departments = absenceData.departments || [];
+
+      // زر الكل
+      const allBtn = document.createElement("button");
+      allBtn.className = "dept-pill" + (activeDept === "ALL" ? " active" : "");
+      allBtn.textContent = "الكل";
+      allBtn.dataset.dept = "ALL";
+      allBtn.onclick = () => {
+        activeDept = "ALL";
+        buildDeptButtons();
+        renderAbsenceChart();
+        loadSummary();
+      };
+      container.appendChild(allBtn);
+
+      departments.sort().forEach((lab) => {
+        const btn = document.createElement("button");
+        btn.className = "dept-pill" + (activeDept === lab ? " active" : "");
+        btn.textContent = lab || "غير محدد";
+        btn.dataset.dept = lab;
+        btn.onclick = () => {
+          activeDept = lab;
+          buildDeptButtons();
+          renderAbsenceChart();
+          loadSummary();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderAbsenceChart() {
+      const months = absenceData.months || [];
+      const departments = absenceData.departments || [];
+      const matrix = absenceData.matrix || [];
+
+      let values = new Array(months.length).fill(0);
+
+      if (activeDept === "ALL") {
+        // مجموع كل الأقسام لكل شهر
+        for (let j = 0; j < months.length; j++) {
+          let sum = 0;
+          for (let i = 0; i < matrix.length; i++) {
+            sum += matrix[i][j] || 0;
+          }
+          values[j] = sum;
+        }
+      } else {
+        const idx = departments.indexOf(activeDept);
+        if (idx >= 0) {
+          values = matrix[idx].slice();
+        }
+      }
+
+      const ctx = document.getElementById("absenceChart").getContext("2d");
+      if (absenceChartInstance) {
+        absenceChartInstance.destroy();
+      }
+
+      absenceChartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label:
+                activeDept === "ALL"
+                  ? "إجمالي أيام الغياب (كل الأقسام)"
+                  : "أيام الغياب — " + activeDept,
+              data: values,
+              tension: 0.35,
+              fill: false,
+              borderColor: "#38bdf8",
+              borderWidth: 2,
+              pointRadius: 3,
+              pointHoverRadius: 4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              labels: {
+                color: "#e5e7eb",
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: { color: "#9ca3af" },
+              grid: { color: "rgba(55,65,81,0.5)" },
+            },
+            y: {
+              ticks: { color: "#9ca3af" },
+              grid: { color: "rgba(31,41,55,0.7)" },
+            },
+          },
+        },
+      });
+    }
+
+    function resetFilters() {
+      document.getElementById("fromDate").value = "";
+      document.getElementById("toDate").value = "";
+      activeDept = "ALL";
+      reloadAll();
+    }
+
+    function reloadAll() {
+      loadSummary();
+      loadAbsenceMonthly();
+    }
+
+    // الفلاتر تعمل تلقائياً بدون زر تطبيق
+    document.getElementById("fromDate").addEventListener("change", reloadAll);
+    document.getElementById("toDate").addEventListener("change", reloadAll);
+    document.getElementById("resetFilters").addEventListener("click", resetFilters);
+
+    // تحميل أولي عند فتح الصفحة
+    reloadAll();
+  </script>
+</body>
+</html>

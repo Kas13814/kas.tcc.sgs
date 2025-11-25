@@ -1,0 +1,715 @@
+<!-- build: 2025-10-21_#1 -->
+<!DOCTYPE html>
+<!-- build: 2025-10-21_#1 -->
+<html lang="ar" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OPERATIONS — ANALYTICS • PERFORMANCE • Services</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+:root{
+  /* ألوان وثوابت عامة */
+  --bg:#2A2A3C; --ink:#ECECF1; --muted:#B9B7C1; --line:#504E59; --accent:#ECECF1;
+  --sidebarW: min(56vw, 220px);
+  --ease: cubic-bezier(.22,.61,.36,1);
+
+  /* ===== شاشة الكمبيوتر (كما تم ضبطها سابقًا) ===== */
+  --d-ops-x: 0px;  --d-ops-y: 20px;
+  --d-ana-x: 0px;  --d-ana-y: 0px;  --d-ana-op: .95;
+  --d-per-x: 0px;  --d-per-y: 0px;  --d-per-op: .9;
+
+  /* مربع الشعار (Desktop) */
+  --d-logo-x: -10px; --d-logo-y: -40px; --d-logo-scale: 75;
+  --d-logo-w: 110px; --d-logo-h: 48px;  --d-logo-gap: 10px;
+
+  /* المستطيل (Desktop) */
+  --d-rect-x: 160px; --d-rect-y: -115px; --d-rect-scale: 75;
+  --d-rect-w: 235px; --d-rect-h: 110px; --d-rect-round: 14px;
+  --rect-slide-left:-18px; --rect-slide-right:26px;
+
+  /* ===== تحكم الهاتف (لوحة الإعدادات) ===== */
+  /* العناوين الثلاثة */
+  --m-ops-x:0vw;  --m-ops-y:3vh;  --m-ops-fs:14.8vw;
+  --m-ana-x:12.5vw; --m-ana-y:3vh; --m-ana-fs:12.8vw;
+  --m-per-x:12.5vw; --m-per-y:1vh; --m-per-fs:12.8vw;
+
+  /* الوقت و Home */
+  --m-time-x:0px; --m-time-y:0px;
+  --m-home-x:0px; --m-home-y:0px;
+
+  /* نص المقدمة */
+  --m-int-x:0px; --m-int-y:0px; --m-int-fs:16px;
+
+  /* مربع الشعار للهاتف */
+  --m-logo-x: 0vw; --m-logo-y: -9vh; --m-logo-w: 104px; --m-logo-h: 46px; --m-logo-gap: 8px; --m-logo-scale: 100;
+
+  /* مستطيل الصورة للهاتف */
+  --m-rect-x:0vw; --m-rect-y:-14vh; --m-rect-w:64vw; --m-rect-h:28vw; --m-rect-round:12px;
+  --m-rect-scale: 100; --m-rect-slide-left:-10px; --m-rect-slide-right:20px;
+}
+
+/* Light/Dark */
+[data-theme="light"]{ --bg:#f4f2ec; --ink:#1d1e26; --muted:#6f6a66; --line:#bdb6ad; --accent:#212233; }
+[data-theme="dark"]{
+  --bg:#2A2A3C; --ink:#ECECF1; --muted:#B9B7C1; --line:#504E59; --accent:#ECECF1;
+  /* طلبك: الكلمتان الثانية والثالثة 50% */
+  --d-ana-op:.5;  /* ANALYTICS */
+  --d-per-op: .9;  /* PERFORMANCE */
+}
+
+*{box-sizing:border-box}
+html,body{ overflow:hidden !important;  margin:0; height:100% }
+body{ overflow:hidden !important; 
+  min-height:100%;
+  background:var(--bg); color:var(--ink);
+  font:400 16px/1.55 "Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  letter-spacing:.01em; 
+  transition:background .25s ease, color .25s ease;
+}
+
+button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.clickable { pointer-events:auto }
+
+/* ===== Layout / Sidebar ===== */
+.layout{ display:grid; grid-template-columns: 0 1fr; height:100vh; width:100vw;  transition:grid-template-columns .001s linear; }
+body.sidebar-open .layout{ grid-template-columns: var(--sidebarW) 1fr; }
+
+.sidebar{
+  grid-column:1; grid-row:1; background:var(--bg); color:var(--ink);
+  z-index:5; display:flex; flex-direction:column; position:relative;
+  opacity:0; visibility:hidden; pointer-events:none; transform:translate3d(-14px,0,0);
+  transition: opacity .65s var(--ease), transform .65s var(--ease), visibility 0s linear .65s;
+}
+.sidebar.in{ opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(0,0,0); transition: opacity .65s var(--ease), transform .65s var(--ease), visibility 0s; }
+.sidebar__header{ position:sticky; top:0; z-index:1; padding:12px 12px 8px; border-bottom:1px solid rgba(255,255,255,.08); background:var(--bg); text-align:left; }
+.sidebar__title{ font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.95; }
+.sidebar__close{ position:absolute; top:8px; right:8px; width:26px; height:26px; display:grid; place-items:center; cursor:pointer; background:none; border:none; border-radius:8px; }
+.sidebar__close svg{ width:16px; height:16px; stroke:var(--ink); fill:none; stroke-width:2; }
+.sidebar__content{ padding:18px 8px 14px; overflow:auto; }
+
+/* قائمة جانبية */
+.side-list{ list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.side-h{ font:800 11px/1 Inter; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); opacity:.95; padding:8px 10px 2px; }
+.side-item a{
+  display:flex; align-items:center; gap:8px; padding:9px 10px;
+  border-radius:10px; text-decoration:none; color:var(--ink);
+  background:#121217; border:1px solid rgba(255,255,255,.06);
+  transition:transform .15s, opacity .15s, background .15s;
+}
+.side-item a:hover{ opacity:.98; transform:translateX(2px); }
+.side-item svg{ width:16px; height:16px; stroke:var(--ink); fill:none; stroke-width:2; }
+
+.app{ grid-column:2; grid-row:1; position:relative; height:100%; width:100%; z-index:100; transition: box-shadow .26s var(--ease); box-shadow:none; }
+body.sidebar-open .app{ box-shadow: -10px 0 14px rgba(0,0,0,.12), -3px 0 6px rgba(0,0,0,.06); }
+
+.side-toggle{ position:fixed; top:16px; left:16px; z-index:4000; width:36px; height:36px; display:grid; place-items:center; cursor:pointer; background:none; border:none; border-radius:10px; }
+.side-toggle svg{ width:22px; height:22px; stroke:var(--ink); fill:none; stroke-width:2; }
+
+/* ===== Hero ===== */
+.hero{ position:relative; height:100vh; min-height:100vh; padding:40px 6vw 0 6vw;  }
+.hero__brand{
+  font-family:"Cormorant Garamond","Times New Roman",serif; font-weight:600; line-height:.88; letter-spacing:.005em; color:var(--accent);
+  font-size:min(15.6vw,182px); position:relative; z-index:2;
+  transform: translate(var(--d-ops-x), var(--d-ops-y));
+}
+.hero__ghosts{ position:absolute; top:8vh; left:6vw; pointer-events:none; user-select:none; font-family:"Cormorant Garamond","Times New Roman",serif; font-weight:400; line-height:.9; letter-spacing:.01em; z-index:1; }
+.hero__ghosts span{ display:block; white-space:nowrap; }
+/* ANALYTICS */
+.ghost-1{
+  font-size:min(13.8vw,156px); color:#C4C1C9; opacity: var(--d-ana-op, .95);
+  transform:translate(calc(400px + var(--d-ana-x)), calc(117px + var(--d-ana-y)));
+}
+/* PERFORMANCE */
+.ghost-2{
+  margin-top:12vh; font-size:min(13.8vw,156px); color:#EBE7E6; opacity: var(--d-per-op, .92);
+  transform:translate(calc(400px + var(--d-per-x)), calc(-26px + var(--d-per-y)));
+}
+
+/* ===== Divider ===== */
+.divider{ position:absolute; left:0; right:0; top:50vh; transform:translateY(-50%); padding:12px 0 0; height:54px; z-index:3500; }
+.divider::before{ content:""; position:absolute; left:6vw; right:6vw; top:0; height:1px; background:var(--line);}   
+.divider__grid{ position:relative; display:grid; grid-template-columns: 1fr 1fr 1fr; align-items:center; gap:12px; padding:8px 6vw 0 6vw; font-size:12px; color:var(--muted);} 
+.divider__time{ justify-self:start; }
+.divider__center{ justify-self:center; text-transform:uppercase; letter-spacing:.18em; font-weight:600; font-size:11px; opacity:.85; display:flex; align-items:center; gap:6px; } 
+.divider__nav{ justify-self:end; }
+.divider__nav ul{ list-style:none; margin:0; padding:0; display:flex; gap:min(4.6vw,40px);} 
+.divider__nav a{ text-decoration:none; color:var(--ink); opacity:.62; font-size:12px; transition:opacity .2s ease;} 
+.divider__nav a:hover{ opacity:1 }
+.divider__nav .active{ opacity:1; color:var(--muted);} 
+
+/* ===== Intro ===== */
+.intro{ position:relative; right:6vw; bottom:6vh; max-width:720px; width:100%; margin:0; padding:0; color:var(--ink); text-align:left; z-index:2; } 
+.intro p{ margin:0; font-size:clamp(18px,1.5vw,20px); line-height:1.85; }
+
+/* ===== مربع الشعار (desktop baseline) ===== */
+.logo-over-time{
+  position:absolute; top:0; left:0;
+  transform:
+    translateX(var(--d-logo-x))
+    translateY(calc(-100% - var(--d-logo-gap))) translateY(var(--d-logo-y))
+    scale(calc(var(--d-logo-scale) / 100));
+  transform-origin:left bottom;
+  width:var(--d-logo-w); height:var(--d-logo-h);
+  display:grid; place-items:center; background:transparent; border:none;
+  z-index:3600; pointer-events:auto;
+}
+.logo-over-time img{ max-width:90%; max-height:80%; object-fit:contain; display:block; }
+
+/* ===== مستطيل الخلفية (desktop baseline) ===== */
+.logo-bg{
+  position:absolute; top:0; left:0;
+  width:var(--d-rect-w); height:var(--d-rect-h);
+  transform:
+    translate(calc(var(--d-rect-x) + var(--rect-slide-left)), var(--d-rect-y))
+    scale(calc(var(--d-rect-scale) / 100));
+  transform-origin:left bottom;
+  border-radius: var(--d-rect-round);
+  background: transparent; opacity:0; z-index:3595; pointer-events:none;
+  transition: transform 1.1s var(--ease), opacity 1.1s var(--ease);
+}
+.logo-bg > img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; border-radius:inherit; }
+.logo-over-time:hover ~ .logo-bg{
+  opacity:1;
+  transform:
+    translate(calc(var(--d-rect-x) + var(--rect-slide-right)), var(--d-rect-y))
+    scale(calc(var(--d-rect-scale) / 100));
+}
+
+/* ===== عناصر الهاتف ===== */
+@media (max-width:640px){
+  .hero{ padding:28px 6vw 0 6vw; }
+  .hero__brand{ font-size:var(--m-ops-fs); transform: translate(var(--m-ops-x), var(--m-ops-y)); }
+  .hero__ghosts{ position:absolute; left:6vw; top:calc(6vw + 18vw); }
+  .ghost-1{ font-size:var(--m-ana-fs); opacity:.96; margin:0; transform: translate(var(--m-ana-x), var(--m-ana-y)); }
+  .ghost-2{ font-size:var(--m-per-fs); opacity:.25; margin-top:2.6vw; transform: translate(var(--m-per-x), var(--m-per-y)); }
+
+  .intro{
+    left:6vw; right:6vw; bottom:8vh; max-width:none; text-align:center;
+  }
+  .intro p{ font-size:var(--m-int-fs); line-height:1.9; transform: translate(var(--m-int-x), var(--m-int-y)); }
+
+  .divider{ top:50vh; height:74px; z-index:3600; }
+  .divider::before{ left:6vw; right:6vw; top:26px; }
+  .divider__grid{ grid-template-columns: 1fr; gap:0; padding:0 6vw; height:74px; display:grid; align-content:flex-start; justify-items:center; position:relative; }
+  .divider__nav{ display:none; }
+
+  .divider__time{ transform: translate(var(--m-time-x), var(--m-time-y)); }
+  .m-home{
+    position:absolute; right:14vw; top:2px; font-size:12px; text-decoration:none; color:var(--ink); opacity:.85; display:inline; z-index:4200;
+    transform: translate(var(--m-home-x), var(--m-home-y));
+  }
+  .m-arrow{ display:none; } /* لا قائمة هاتف هنا بعد إزالة العناصر */
+}
+
+/* ===== لوحة الإعدادات (Mobile only) ===== */
+.tuner-toggle{
+  position:fixed; right:12px; bottom:12px; z-index:3800;
+  width:44px; height:44px; border-radius:12px; border:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  display:grid; place-items:center; cursor:pointer; color:var(--ink);
+}
+.tuner{
+  position:fixed; left:12px; right:12px; bottom:12px; z-index:3790;
+  background:rgba(20,22,30,.86); -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%);
+  border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px; display:none;
+}
+.tuner.open{ display:block; }
+.t-head{ display:grid; grid-template-columns: 220px repeat(6, 1fr); gap:8px; padding:6px 0 10px; border-bottom:1px dashed rgba(255,255,255,.08); margin-bottom:8px; font:700 11px/1 Inter; opacity:.85; text-transform:uppercase; letter-spacing:.12em; }
+.t-row{ display:grid; grid-template-columns: 220px repeat(6, 1fr); gap:8px; align-items:center; margin-bottom:8px; }
+.t-row .lbl{ font:600 12px/1 Inter; opacity:.9; white-space:nowrap;  text-overflow:ellipsis; }
+.t-row input{ width:100%; height:34px; border:1px solid var(--line); border-radius:10px; background:transparent; color:var(--ink); padding:6px 8px; font:600 12px/1 Inter; }
+.t-section{ margin-top:14px; margin-bottom:8px; font:800 12px/1 Inter; opacity:.9; letter-spacing:.08em; border-bottom:1px dotted rgba(255,255,255,.1); padding-bottom:6px; }
+.t-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+.t-actions button{ border:1px solid var(--line); background:transparent; color:var(--ink); border-radius:10px; padding:8px 12px; font:700 12px/1 Inter; cursor:pointer; }
+@media (max-width:980px){
+  .t-row, .t-head{ grid-template-columns: 180px repeat(6, 1fr); }
+}
+
+/* Added hover effects */
+.divider__nav a:hover{
+  transform: scale(1.1);
+  color:#000 !important;
+  opacity:1 !important;
+  display:inline-block;
+}
+.divider__center:hover{
+  transform: scale(1.1);
+  color:#000 !important;
+  opacity:1 !important;
+  display:inline-block;
+}
+
+
+/* Dark theme hover: make hover text white */
+[data-theme="dark"] .divider__nav a:hover{
+  color:#fff !important;
+}
+[data-theme="dark"] .divider__center:hover{
+  color:#fff !important;
+}
+
+
+/* Ensure intro text stays visible in both themes */
+#introText { opacity:1 !important; color:var(--ink) !important; }
+
+
+
+/* Ensure 'Performance' (ghost-2) visible in dark theme */
+[data-theme="dark"] .ghost-2 {
+  opacity: .25 !important;
+  color: rgba(255,255,255,0.95) !important;
+}
+
+/* Ensure intro text visible in both themes */
+#introText {
+  opacity: 1 !important;
+  color: var(--ink) !important;
+  visibility: visible !important;
+}
+
+/* Force intro text always visible */
+#introText {
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--ink) !important;
+}
+
+
+/* Force intro always visible */
+.intro, .intro p {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+
+
+/* Force intro text visible in both themes */
+.intro, .intro p {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+
+/* Ensure intro text visible in dark theme */
+[data-theme="dark"] .intro,
+[data-theme="dark"] .intro p {
+  color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+
+/* Raise intro above background */
+.intro {
+  z-index: 9999 !important;
+}
+
+
+/* Force intro fully visible */
+.intro, .intro p {
+  position: relative !important;
+  z-index: 99999 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+
+/* Position intro bottom-right fixed */
+.intro {
+  position: fixed !important;
+  right: 2vw !important;
+  bottom: 2vh !important;
+  left: auto !important;
+  top: auto !important;
+  text-align: right !important;
+  width: auto !important;
+  max-width: 40vw !important;
+  z-index: 99999 !important;
+}
+.intro p {
+  text-align: left !important;
+}
+
+
+.intro p {
+  text-align: left !important;
+}
+
+[data-theme="dark"] .ghost-2 {
+  opacity: 0.1 !important;
+}
+
+</style>
+</head>
+
+<body>
+  <!-- زر فتح/إغلاق اللوحة اليسرى -->
+  <button class="side-toggle clickable" id="toggleSidebar" aria-label="Toggle panel">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="4" y1="6"  x2="20" y2="6"></line>
+      <line x1="4" y1="12" x2="20" y2="12"></line>
+      <line x1="4" y1="18" x2="20" y2="18"></line>
+    </svg>
+  </button>
+
+  <div class="layout">
+    <!-- اللوحة (يسار) -->
+    <aside class="sidebar" id="sidebar" aria-hidden="true">
+      <div class="sidebar__header">
+        <span class="sidebar__title">FORM</span>
+        <button class="sidebar__close clickable" id="closeSidebar" aria-label="Close panel">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="5" y1="5" x2="19" y2="19"></line>
+            <line x1="19" y1="5" x2="5" y2="19"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar__content">
+
+        <!-- أقسام بالرمادي + أزرار سوداء تحت كل قسم -->
+        <ul class="side-list" id="sideList">
+
+          <li class="side-h">SGS Flight Delay-FIC</li>
+          <li class="side-item">
+            <a href="Forms%20file/sgs_flight_delay.html">
+              <svg viewBox="0 0 24 24"><polyline points="3,17 9,13 14,16 21,10"/></svg>
+              sgs flight delay
+            </a>
+          </li>
+
+          <li class="side-h">Operational KPIs</li>
+          <li class="side-item">
+            <a href="Forms%20file/shift_report.html">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="12" rx="2"/></svg>
+              shift report
+            </a>
+          </li>
+          <li class="side-item">
+            <a href="Forms%20file/tcc_flight_delay.html">
+              <svg viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg>
+              tcc flight delay
+            </a>
+          </li>
+          <li class="side-item">
+            <a href="Forms%20file/operational_event.html">
+              <svg viewBox="0 0 24 24"><path d="M4 17h16M6 7h12M8 11h8"/></svg>
+              operational event
+            </a>
+          </li>
+
+          <li class="side-h">Employee Forms</li>
+          <li class="side-item">
+            <a href="Forms%20file/employee_overtime.html">
+              <svg viewBox="0 0 24 24"><path d="M12 6v6l4 2"/></svg>
+              employee Overtime
+            </a>
+          </li>
+          <li class="side-item">
+            <a href="Forms%20file/employee_absence.html">
+              <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+              employee absence
+            </a>
+          </li>
+          <li class="side-item">
+            <a href="Forms%20file/employee_delay.html">
+              <svg viewBox="0 0 24 24"><polyline points="3,17 9,13 14,16 21,10"/></svg>
+              employee delay
+            </a>
+          </li>
+          <li class="side-item">
+            <a href="Forms%20file/employee_sick_leave.html">
+              <svg viewBox="0 0 24 24"><path d="M12 8v8M8 12h8"/></svg>
+              employee sick leave
+            </a>
+          </li>
+
+          <!-- تغييرات الأسماء المطلوبة -->
+          <li class="side-h">Form</li>
+          <li class="side-item">
+            <!-- Technical → Login -->
+            <a href="Navigation panel.html">
+              <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M4 12h11"/></svg>
+              Login
+            </a>
+          </li>
+          <li class="side-item">
+            <!-- Baggage → Login (Request to join) -->
+            <a href="nxs_dashboard.html">
+              <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M4 12h11"/></svg>
+              Login
+            </a>
+          </li>
+
+          <!-- Flight Delay → employee master -->
+          <li class="side-h">Employee</li>
+          <li class="side-item">
+            <a href="Login file/Login.html">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M4 20c2-4 14-4 16 0"/></svg>
+              employee master
+            </a>
+          </li>
+
+        </ul>
+      </div>
+    </aside>
+
+    <!-- الصفحة -->
+    <div class="app">
+      <!-- تبديل الثيم -->
+      <div class="toggle-wrap" aria-label="تبديل الوضع" style="position:fixed;top:16px;right:16px;z-index:3800">
+        <label class="toggle clickable" style="width:36px;height:36px;display:grid;place-items:center;cursor:pointer">
+          <input id="switch" type="checkbox" class="input" style="display:none" />
+          <span>🌓</span>
+        </label>
+      </div>
+
+      <!-- Hero -->
+      <header class="hero" id="hero" aria-label="OPERATIONS hero">
+        <div class="hero__brand">OPERATIONS</div>
+        <div class="hero__ghosts" aria-hidden="true">
+          <span class="ghost-1">ANALYTICS</span>
+          <span class="ghost-2">PERFORMANCE</span>
+        </div>
+
+        <!-- الشريط -->
+        <div class="divider" role="separator">
+          <!-- مربع الشعار -->
+          <div class="logo-over-time" id="logoBox" aria-hidden="false">
+            <img src="https://i.postimg.cc/MTFZhMSq/14141414-removebg-preview.png" alt="Logo" />
+          </div>
+
+          <!-- مستطيل الخلفية -->
+          <div class="logo-bg" aria-hidden="true">
+            <img src="https://i.postimg.cc/fTPFmWRD/image.png" alt="bg" />
+          </div>
+
+          <div class="divider__grid" id="dividerGrid">
+            <div class="divider__time" id="timeEl">07:26 PST</div>
+
+            <!-- Dashboard يفتح ملف -->
+            <a class="divider__center" id="openDashboard" href="nxs_dashboard.html" style="color:var(--ink);opacity:.62;">Dashboard</a>
+
+            <!-- قائمة علوية: حذف Fleet + إعادة التسمية -->
+            <nav class="divider__nav" aria-label="Primary">
+              <ul>
+                <li><a class="active" href="Navigation panel.html">Form</a></li>
+                <li><a href="Login.html">Login</a></li>
+                <li><a href="AI.html">AI</a></li>
+                <li><a href="emp master.html">employee master</a></li>
+              </ul>
+            </nav>
+
+            <!-- الهاتف: Home فقط (أزلنا قائمة الهاتف الأخرى) -->
+            <a href="Login.html" class="m-home clickable" aria-label="Home" style="display:none">Login</a>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro" aria-label="Company intro">
+          <p id="introText">
+Empowering OPERATIONS through clarity, analytical precision, and measurable impact —
+via integrated data and interactive dashboards that link OPERATIONS to results.
+          </p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+<!-- ===== لوحة الإعدادات — للهاتف فقط ===== -->
+<button class="tuner-toggle" id="tunerToggle" title="الإعدادات">⚙️</button>
+<div class="tuner" id="tuner">
+
+  <div class="t-head">
+    <div>العنصر</div>
+    <div>X (الإزاحة)</div>
+    <div>Y (الإزاحة)</div>
+    <div>حجم الخط/الحجم</div>
+    <div>العرض</div>
+    <div>الارتفاع / نصف القطر</div>
+    <div>أخرى</div>
+  </div>
+
+  <div class="t-section">الهاتف — العناوين</div>
+  <div class="t-row">
+    <div class="lbl">OPERATIONS (X,Y, حجم خط)</div>
+    <input data-var="--m-ops-x" data-unit="vw" type="number" step="0.1" placeholder="X vw">
+    <input data-var="--m-ops-y" data-unit="vh" type="number" step="0.1" placeholder="Y vh">
+    <input data-var="--m-ops-fs" data-unit="vw" type="number" step="0.1" placeholder="Fs vw">
+    <div></div><div></div><div></div>
+  </div>
+  <div class="t-row">
+    <div class="lbl">ANALYTICS (X,Y, حجم خط)</div>
+    <input data-var="--m-ana-x" data-unit="vw" type="number" step="0.1" placeholder="X vw">
+    <input data-var="--m-ana-y" data-unit="vh" type="number" step="0.1" placeholder="Y vh">
+    <input data-var="--m-ana-fs" data-unit="vw" type="number" step="0.1" placeholder="Fs vw">
+    <div></div><div></div><div></div>
+  </div>
+  <div class="t-row">
+    <div class="lbl">PERFORMANCE (X,Y, حجم خط)</div>
+    <input data-var="--m-per-x" data-unit="vw" type="number" step="0.1" placeholder="X vw">
+    <input data-var="--m-per-y" data-unit="vh" type="number" step="0.1" placeholder="Y vh">
+    <input data-var="--m-per-fs" data-unit="vw" type="number" step="0.1" placeholder="Fs vw">
+    <div></div><div></div><div></div>
+  </div>
+
+  <div class="t-section">الهاتف — الشريط</div>
+  <div class="t-row">
+    <div class="lbl">الوقت 07:26 PST (X,Y)</div>
+    <input data-var="--m-time-x" data-unit="px" type="number" step="1" placeholder="X px">
+    <input data-var="--m-time-y" data-unit="px" type="number" step="1" placeholder="Y px">
+    <input disabled placeholder="—">
+    <div></div><div></div><div></div>
+  </div>
+  <div class="t-row">
+    <div class="lbl">Home (زر الهاتف) (X,Y)</div>
+    <input data-var="--m-home-x" data-unit="px" type="number" step="1" placeholder="X px">
+    <input data-var="--m-home-y" data-unit="px" type="number" step="1" placeholder="Y px">
+    <input disabled placeholder="—">
+    <div></div><div></div><div></div>
+  </div>
+
+  <div class="t-section">الهاتف — مربع الصورة (الشعار)</div>
+  <div class="t-row">
+    <div class="lbl">مربع الشعار</div>
+    <input data-var="--m-logo-x" data-unit="vw"  type="number" step="0.1" placeholder="X vw">
+    <input data-var="--m-logo-y" data-unit="vh"  type="number" step="0.1" placeholder="Y vh">
+    <input data-var="--m-logo-scale"           type="number" step="1"   placeholder="الحجم %">
+    <input data-var="--m-logo-w" data-unit="px" type="number" step="1"   placeholder="العرض px">
+    <input data-var="--m-logo-h" data-unit="px" type="number" step="1"   placeholder="الارتفاع px">
+    <input data-var="--m-logo-gap" data-unit="px" type="number" step="1" placeholder="المسافة من الخط">
+  </div>
+
+  <div class="t-section">الهاتف — المستطيل خلف الشعار</div>
+  <div class="t-row">
+    <div class="lbl">المستطيل</div>
+    <input data-var="--m-rect-x" data-unit="vw"  type="number" step="0.1" placeholder="X vw">
+    <input data-var="--m-rect-y" data-unit="vh"  type="number" step="0.1" placeholder="Y vh">
+    <input data-var="--m-rect-scale"           type="number" step="1"   placeholder="الحجم %">
+    <input data-var="--m-rect-w" data-unit="vw" type="number" step="0.1" placeholder="العرض vw">
+    <input data-var="--m-rect-h" data-unit="vw" type="number" step="0.1" placeholder="الارتفاع vw">
+    <input data-var="--m-rect-round" data-unit="px" type="number" step="1" placeholder="نصف القطر px">
+  </div>
+
+  <div class="t-section">الهاتف — النص التعريفي</div>
+  <div class="t-row">
+    <div class="lbl">Intro Text (تم تثبيته وتوسيطه)</div>
+    <input data-var="--m-int-x" data-unit="px" type="number" step="1" placeholder="X px">
+    <input data-var="--m-int-y" data-unit="px" type="number" step="1" placeholder="Y px">
+    <input data-var="--m-int-fs" data-unit="px" type="number" step="1" placeholder="الحجم px">
+    <div></div><div></div><div></div>
+  </div>
+
+  <div class="t-actions">
+    <button id="tClose" type="button">إغلاق</button>
+  </div>
+</div>
+
+<script>
+/* لمسة/نقرة سريعة */
+function onTap(el, fn){
+  if(!el) return;
+  let lock=false;
+  function fire(e){ if(lock) return; lock=true; setTimeout(()=>lock=false,80);
+    if(e && e.type!=='click' && e.cancelable) e.preventDefault();
+    fn(e);
+  }
+  el.addEventListener('pointerup', fire, {passive:false});
+  el.addEventListener('click', fire, false);
+}
+
+(function(){
+  /* الثيم */
+  const root=document.documentElement, cb=document.getElementById('switch');
+  const KEY='pref-theme', saved=localStorage.getItem(KEY);
+  const initial = saved || (matchMedia('(prefers-color-scheme: light)').matches ? 'light':'dark');
+  root.setAttribute('data-theme', initial);
+  if(cb){ cb.checked=(initial==='light'); cb.addEventListener('change', ()=>{ root.setAttribute('data-theme', cb.checked?'light':'dark'); localStorage.setItem(KEY, cb.checked?'light':'dark'); }); }
+
+  /* سايدبار */
+  onTap(document.getElementById('toggleSidebar'), ()=> document.body.classList.toggle('sidebar-open'));
+  onTap(document.getElementById('closeSidebar'),  ()=> document.body.classList.remove('sidebar-open'));
+
+  /* محاذاة مربع الشعار مع الوقت (Desktop baseline) */
+  const logo=document.getElementById('logoBox');
+  const timeEl=document.getElementById('timeEl');
+  const divider=document.querySelector('.divider');
+  function alignLogoLeft(){
+    if(!logo||!timeEl||!divider) return;
+    const rt=timeEl.getBoundingClientRect(); const rd=divider.getBoundingClientRect();
+    logo.style.left = (rt.left - rd.left) + 'px';
+  }
+  window.addEventListener('load', alignLogoLeft, {once:true});
+  window.addEventListener('resize', alignLogoLeft);
+  setTimeout(alignLogoLeft,100);
+
+  /* لوحة إعدادات الهاتف */
+  const tuner = document.getElementById('tuner');
+  const tToggle = document.getElementById('tunerToggle');
+  const tClose = document.getElementById('tClose');
+  const STORE_KEY = 'AK_tune_mobile';
+
+  function parseUnitVal(val, unit){
+    if(!val) return '';
+    if(unit && val.endsWith(unit)) return parseFloat(val.replace(unit,''));
+    const num = parseFloat(val); return isNaN(num) ? '' : num;
+  }
+  function loadIntoInputs(){
+    tuner.querySelectorAll('input[data-var]').forEach(inp=>{
+      const v = getComputedStyle(root).getPropertyValue(inp.dataset.var).trim();
+      const unit = inp.dataset.unit||'';
+      inp.value = parseUnitVal(v, unit);
+    });
+  }
+  function applyVar(name, valueWithUnit){ root.style.setProperty(name, valueWithUnit); }
+  function saveAll(){
+    const out = {};
+    tuner.querySelectorAll('input[data-var]').forEach(inp=>{
+      const name=inp.dataset.var, unit=inp.dataset.unit||'', val=inp.value===''?'':(inp.value+unit);
+      if(val!=='') out[name]=val;
+    });
+    localStorage.setItem(STORE_KEY, JSON.stringify(out));
+  }
+  function restoreAll(){
+    const raw=localStorage.getItem(STORE_KEY); if(!raw) return;
+    try{ const obj=JSON.parse(raw); Object.keys(obj).forEach(k=>applyVar(k,obj[k])); }catch(e){}
+  }
+
+  onTap(tToggle, ()=>{ tuner.classList.add('open'); loadIntoInputs(); });
+  onTap(tClose, ()=> tuner.classList.remove('open'));
+  tuner.addEventListener('input', function(e){
+    const inp=e.target; if(!inp.matches('input[data-var]')) return;
+    const name=inp.dataset.var, unit=inp.dataset.unit||'';
+    if(inp.value==='') return;
+    applyVar(name, inp.value+unit); saveAll();
+  });
+
+  restoreAll();
+})();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
+
+
+<script>
+function updateTime(){
+  const el=document.getElementById('timeEl');
+  const d=new Date();
+  const opts={day:'2-digit', month:'long', year:'numeric'};
+  el.textContent=d.toLocaleDateString('en-US', opts);
+}
+updateTime();
+setInterval(updateTime,60000);
+</script>
+
+</body>
+</html>

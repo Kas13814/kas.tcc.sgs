@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en-GB" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Employee Master</title>
+
+<script>
+(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}})();
+</script>
+
+<style>
+:root{--bg:#F6F4F1;--card:#FAFAFA;--text:#0F1220;--muted:#6B7280;--brand:#22D3A6;--ring:#E8E8E8;--shadow:0 10px 30px rgba(2,8,23,.12);--radius:22px}
+[data-theme="dark"]{--bg:#0B0B0C;--card:#111213;--text:#E5E7EB;--muted:#94A3B8;--ring:#2A2B2C;--shadow:0 10px 30px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI",Inter,Roboto,system-ui,-apple-system,sans-serif}
+.container{max-width:1120px;margin:32px auto;padding:0 16px}
+.header{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:18px}
+.title{font-size:18px;font-weight:700}
+.btn{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--ring);background:var(--card);color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;text-decoration:none}
+.panel{background:var(--card);border:1px solid var(--ring);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form .full{grid-column:1/-1}
+label{display:block;color:var(--muted);font-size:12px;margin:7px 0 6px}
+input,select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--ring);outline:none;background:var(--card);color:var(--text)}
+textarea{min-height:90px;resize:vertical}
+.toast{position:fixed;right:16px;bottom:16px;background:#111827;color:#F9FAFB;padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);display:none}
+.toast.ok{background:linear-gradient(135deg,#16A34A,#22D3A6)}
+.toast.err{background:linear-gradient(135deg,#EF4444,#F14668)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title" id="pageTitle">Employee Master</div>
+    <div style="display:flex;gap:8px">
+      <button id="fetchBtn" class="btn">استدعاء البيانات</button>
+      <button id="updateBtn" class="btn">تحديث البيانات</button>
+      <button id="submitBtn" class="btn" style="background:var(--brand);color:#fff;border-color:transparent">Submit</button>
+      <a href="#" class="btn" onclick="location.reload()">⟲</a>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="toolbar">
+      <div>
+        <div id="formTitle" style="font-weight:700;font-size:16px"></div>
+        <div id="formDesc" style="color:var(--muted);font-size:12px"></div>
+      </div>
+    </div>
+    <form id="dynForm" class="form"></form>
+  </div>
+</div>
+<div id="toast" class="toast">Saved</div>
+
+<script>
+/* URLs */
+const CREATE_URL = "https://default60dea775d71f4a6ea493d06d9b2ab2.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4d914035f83f434a8aebce8706c85ce5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=IPNunYNfpDkFlvuA2DlCqecL8rdlzNdYogQkqXqvFic";
+const FETCH_URL  = "https://default60dea775d71f4a6ea493d06d9b2ab2.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ea94a602d1fd4f13becfdbbcceae802f/triggers/manual/paths/invoke?api-version=1";
+const UPDATE_URL = ""; /* ضع رابط تدفق التحديث (الذي يحدث السجل ولا ينشئ سطرًا جديدًا) */
+
+const DATE_FMT='DD-MM-YYYY';
+function normalizeDigits(s){if(!s)return s;const ar='٠١٢٣٤٥٦٧٨٩';return String(s).replace(/[٠-٩]/g,ch=>String(ar.indexOf(ch)))}
+function toDDMMYYYY(s){s=normalizeDigits(s);if(!s)return'';if(/^\d{2}-\d{2}-\d{4}$/.test(s))return s;if(/^\d{4}-\d{2}-\d{2}/.test(s)){const y=s.slice(0,4),m=s.slice(5,7),d=s.slice(8,10);return `${d}-${m}-${y}`}return s}
+function showToast(m,e=false){const t=document.getElementById('toast');t.textContent=m;t.className='toast '+(e?'err':'ok');t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
+function attachMasks(root){root.querySelectorAll('input[data-mask="date"]').forEach(el=>{el.addEventListener('input',()=>{let v=normalizeDigits(el.value).replace(/[^0-9]/g,'').slice(0,8);if(v.length>=5)v=v.slice(0,2)+'-'+v.slice(2,4)+'-'+v.slice(4);else if(v.length>=3)v=v.slice(0,2)+'-'+v.slice(2);el.value=v})})}
+function disableUI(dis){document.querySelectorAll('button, input, select, textarea').forEach(x=>x.disabled=dis)}
+
+/* Form def */
+const FORM_DEF={
+  id:"employee_master",
+  title:"Employee Master",
+  description:"Master employee records (HR baseline).",
+  fields:[
+    {name:"Date",label:"Date",type:"date",required:true},
+    {name:"Employee ID",label:"Employee ID",type:"text",required:true},
+    {name:"Employee Name",label:"Employee Name",type:"text",required:true},
+    {name:"Gender",label:"Gender",type:"text"},
+    {name:"Nationality",label:"Nationality",type:"text",required:true},
+    {name:"Hiring Date",label:"Hiring Date",type:"date"},
+    {name:"Job Title",label:"Job Title",type:"text"},
+    {name:"Actual Role",label:"Actual Role",type:"text"},
+    {name:"Grade",label:"Grade",type:"text"},
+    {name:"Department",label:"Department",type:"text",required:true},
+    {name:"Previous Department",label:"Previous Department",type:"text"},
+    {name:"Current Department",label:"Current Department",type:"text"},
+    {name:"Employment Action Type",label:"Employment Action Type",type:"text"},
+    {name:"Action Effective Date",label:"Action Effective Date",type:"date"},
+    {name:"Exit Reason",label:"Exit Reason",type:"text"}
+  ]
+};
+
+function buildForm(){
+  document.title=FORM_DEF.title;
+  document.getElementById('formTitle').textContent=FORM_DEF.title;
+  document.getElementById('formDesc').textContent=FORM_DEF.description||'';
+  const dyn=document.getElementById('dynForm');dyn.innerHTML='';
+  FORM_DEF.fields.forEach(f=>{
+    const id=FORM_DEF.id+'_'+f.name, req=f.required?'required':'';
+    const c=f.type==='date' ? `<input id="${id}" type="text" data-mask="date" inputmode="numeric" maxlength="10" placeholder="${DATE_FMT}" ${req}/>` : `<input id="${id}" type="text" ${req}/>`;
+    const w=document.createElement('div'); w.innerHTML=`<label for="${id}">${f.label||f.name}${f.required?' *':''}</label>${c}`;
+    dyn.appendChild(w);
+  });
+  attachMasks(dyn);
+}
+function getVal(n){return normalizeDigits((document.getElementById(FORM_DEF.id+'_'+n)?.value||'').trim())}
+function setVal(n,v){const el=document.getElementById(FORM_DEF.id+'_'+n); if(el) el.value=v||'' }
+function buildPayload(){const p={};FORM_DEF.fields.forEach(f=>{let v=getVal(f.name); if(f.type==='date' && v) v=toDDMMYYYY(v); p[f.name]=v});return p}
+
+/* Actions */
+async function submitCreate(){
+  const payload=buildPayload();
+  for(const f of FORM_DEF.fields){ if(f.required && !payload[f.name]){ showToast('يرجى تعبئة الحقول المطلوبة',true); return; } }
+  try{
+    disableUI(true);
+    const r=await fetch(CREATE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const raw=await r.text(); if(!r.ok) throw new Error(raw||('HTTP '+r.status));
+    showToast('تم الحفظ ✓'); document.getElementById('dynForm').reset?.();
+  }catch(e){showToast('خطأ: '+(e.message||'Failed'),true)}
+  finally{disableUI(false)}
+}
+
+async function fetchByEmployeeId(){
+  const empId=getVal('Employee ID'); if(!empId){showToast('ادخل الرقم الوظيفي',true);return}
+  try{
+    disableUI(true);
+    const r=await fetch(FETCH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({"Employee ID":empId})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok || !data || data.found===false){showToast('غير موجود',true);return}
+    Object.keys(data).forEach(k=>{ if(k!=='found') setVal(k, data[k]); });
+    showToast('تم الاستدعاء ✓');
+  }catch(e){showToast('خطأ الاستدعاء',true)}
+  finally{disableUI(false)}
+}
+
+async function submitUpdate(){
+  if(!UPDATE_URL){showToast('أضف رابط التحديث أولاً',true);return}
+  const payload=buildPayload();
+  const empId=payload["Employee ID"]; if(!empId){showToast('ادخل الرقم الوظيفي',true);return}
+  try{
+    disableUI(true);
+    const r=await fetch(UPDATE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const raw=await r.text(); if(!r.ok) throw new Error(raw||('HTTP '+r.status));
+    showToast('تم التحديث ✓');
+  }catch(e){showToast('خطأ التحديث: '+(e.message||'Failed'),true)}
+  finally{disableUI(false)}
+}
+
+/* Init */
+buildForm();
+document.getElementById('submitBtn').onclick=submitCreate;
+document.getElementById('fetchBtn').onclick=fetchByEmployeeId;
+document.getElementById('updateBtn').onclick=submitUpdate;
+</script>
+</body>
+</html>
