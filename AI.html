@@ -52,6 +52,11 @@
       position: relative;
     }
 
+    /* Keep sidebar on the left even when language is Arabic (RTL) */
+    body[dir="rtl"] .shell {
+      direction: ltr;
+    }
+
     /* ===== Sidebar (left) ===== */
     .sidebar {
       width: 260px;
@@ -190,10 +195,12 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      padding-inline: 4px;
+      padding-left: 4px;
+      padding-right: 0;
       overflow-y: auto;
       overflow-x: hidden;
       scrollbar-width: thin;
+      scrollbar-color: rgba(39, 39, 47, 0.6) transparent;
       flex: 1;
       max-height: calc(100vh - 200px);
     }
@@ -202,12 +209,18 @@
       width: 6px;
     }
     .nav-list::-webkit-scrollbar-thumb {
-      background: #27272f;
+      background: rgba(39, 39, 47, 0.6);
       border-radius: 999px;
+    }
+    .nav-list::-webkit-scrollbar-track {
+      background: transparent;
     }
     
     body.theme-light .nav-list::-webkit-scrollbar-thumb {
-      background: #9ca3af;
+      background: rgba(156, 163, 175, 0.3);
+    }
+    body.theme-light .nav-list::-webkit-scrollbar-track {
+      background: transparent;
     }
 
     .nav-item {
@@ -785,18 +798,24 @@
     .settings-menu{
       display: none;
       position: fixed;
-      right: 60px;
-      top: 44px;
-      z-index: 60;
-      min-width: 280px;
-      padding: 16px;
-      border-radius: 12px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 120;
+      width: min(540px, 100% - 32px);
+      max-height: 80vh;
+      padding: 20px 20px 18px;
+      border-radius: 14px;
       background: var(--bg-sidebar);
       color: var(--text-main);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.5);
       border: 1px solid var(--border-subtle);
       font-size: 13px;
-      transition: left 0.3s ease, right 0.3s ease;
+      overflow-y: auto;
+    }
+
+    .settings-menu::-webkit-scrollbar-track {
+      background: transparent;
     }
     
     body[dir="rtl"] .settings-menu {
@@ -1148,8 +1167,8 @@
     <button id="sidebarToggleClose" class="sidebar-toggle-close" type="button" title="Close sidebar">❮</button>
 
     <button id="newChatSidebar" class="new-chat-btn" type="button">
-      <span class="icon"></span>
-      <span> 🗨️  New chat</span>
+      <span class="icon">+</span>
+      <span>New chat</span>
     </button>
 
     <div class="nav-section-title">Chats</div>
@@ -1527,12 +1546,87 @@
   });
 
   function applyLanguage() {
-    if (settings.language === 'ar') {
+    const isArabic = settings.language === 'ar';
+
+    if (isArabic) {
       document.body.setAttribute('dir', 'rtl');
       userInputEl.placeholder = 'اسأل أي شيء عن عمليات TCC…';
     } else {
       document.body.setAttribute('dir', 'ltr');
       userInputEl.placeholder = 'Ask anything about TCC operations…';
+    }
+
+    // Localize settings window
+    const sectionTitles = document.querySelectorAll('#settingsMenu .settings-section-title');
+    const labels = document.querySelectorAll('#settingsMenu .setting-label');
+    const descriptions = document.querySelectorAll('#settingsMenu .setting-description');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearBtn = document.getElementById('clearAllBtn');
+
+    if (sectionTitles.length >= 5) {
+      if (isArabic) {
+        sectionTitles[0].textContent = 'المظهر';
+        sectionTitles[1].textContent = 'اللغة';
+        sectionTitles[2].textContent = 'نموذج الذكاء الاصطناعي';
+        sectionTitles[3].textContent = 'إعدادات متقدمة';
+        sectionTitles[4].textContent = 'البيانات';
+      } else {
+        sectionTitles[0].textContent = 'Appearance';
+        sectionTitles[1].textContent = 'Language';
+        sectionTitles[2].textContent = 'AI Model';
+        sectionTitles[3].textContent = 'Advanced';
+        sectionTitles[4].textContent = 'Data';
+      }
+    }
+
+    if (labels.length >= 8) {
+      if (isArabic) {
+        labels[0].textContent = 'حجم الخط';
+        labels[1].textContent = 'لون الخط';
+        labels[2].textContent = 'لغة الواجهة';
+        labels[3].textContent = 'اختيار النموذج';
+        labels[4].textContent = 'استجابة متدفقة';
+        labels[5].textContent = 'تمرير تلقائي';
+        labels[6].textContent = 'سرعة الاستجابة';
+        labels[7].textContent = 'أقصى طول للاستجابة';
+      } else {
+        labels[0].textContent = 'Font Size';
+        labels[1].textContent = 'Font Color';
+        labels[2].textContent = 'Interface Language';
+        labels[3].textContent = 'Model Selection';
+        labels[4].textContent = 'Stream Response';
+        labels[5].textContent = 'Auto Scroll';
+        labels[6].textContent = 'Response Speed';
+        labels[7].textContent = 'Max Response Length';
+      }
+    }
+
+    if (descriptions.length >= 6) {
+      if (isArabic) {
+        descriptions[0].textContent = 'اختر لغتك المفضلة';
+        descriptions[1].textContent = 'اختر نموذج الذكاء الاصطناعي للإجابات';
+        descriptions[2].textContent = 'تفعيل عرض الاستجابة مباشرة';
+        descriptions[3].textContent = 'التمرير تلقائيًا إلى الرسائل الجديدة';
+        descriptions[4].textContent = 'ضبط سرعة الكتابة الوهمية';
+        descriptions[5].textContent = 'الحد الأقصى لطول الاستجابة';
+      } else {
+        descriptions[0].textContent = 'Choose your preferred language';
+        descriptions[1].textContent = 'Choose AI model for responses';
+        descriptions[2].textContent = 'Enable real-time streaming';
+        descriptions[3].textContent = 'Scroll to new messages';
+        descriptions[4].textContent = 'Adjust typing animation speed';
+        descriptions[5].textContent = 'Maximum tokens per response';
+      }
+    }
+
+    if (exportBtn && clearBtn) {
+      if (isArabic) {
+        exportBtn.textContent = '📥 تصدير كل المحادثات';
+        clearBtn.textContent = '🗑️ مسح جميع البيانات';
+      } else {
+        exportBtn.textContent = '📥 Export All Chats';
+        clearBtn.textContent = '🗑️ Clear All Data';
+      }
     }
   }
 
