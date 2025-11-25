@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Employee Absence</title>
 
-<!-- Boot: theme -->
 <script>
 (function(){
   try{
@@ -82,7 +81,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
       <div><button id="submitBtn" class="btn" style="background:var(--brand);color:#fff;border-color:transparent">Submit</button></div>
     </div>
 
-    <!-- نموذج ثابت ليظهر دائمًا حتى لو تعطّل JS -->
     <form id="dynForm" class="form" novalidate>
       <div>
         <label for="f_Date">Date *</label>
@@ -126,8 +124,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 <div id="toast" class="toast">Saved</div>
 
 <script>
-/* ===== إعدادات عامة ===== */
-const FLOW_URL = "https://default60dea775d71f4a6ea493d06d9b2ab2.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/dafa982898ef44978d510d837ba1a83d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=p2CGh1U_zV5R4_brhDE48bu2OpzdZqzvFt3Nfm84row";
+/* ===== إعدادات عامة (تم تعديل هذا الجزء) ===== */
+// **ملاحظة:** تم إزالة رابط Flow القديم الذي يحتوي على مفتاح وصول سري (SAS).
+// يرجى استبدال "YOUR_NEW_SUPABASE_FUNCTION_OR_API_ENDPOINT" برابط نقطة النهاية (Endpoint) الجديدة في Supabase أو السيرفر الوسيط.
+const SUBMIT_ENDPOINT = "YOUR_NEW_SUPABASE_FUNCTION_OR_API_ENDPOINT";
 
 /* ===== Helpers ===== */
 function normalizeDigits(s){
@@ -220,7 +220,8 @@ document.getElementById('submitBtn').addEventListener('click', async (e)=>{
   const postData = {
     FormId: "employee_absence",
     SubmittedAt: new Date().toISOString(),
-    Date: isoDate,                         // YYYY-MM-DD for Flow schema
+    // تم تغيير اسم المفتاح ليتناسب مع Supabase إذا كنت ستستخدم دالة أو جدول مباشرة
+    Date: isoDate,                         // YYYY-MM-DD
     EmployeeID: EmployeeID,
     Shift: (f_Shift.value || ''),
     Department: (f_Department.value || ''),
@@ -229,7 +230,7 @@ document.getElementById('submitBtn').addEventListener('click', async (e)=>{
   };
 
   try{
-    const r = await fetch(FLOW_URL, {
+    const r = await fetch(SUBMIT_ENDPOINT, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(postData)
@@ -243,7 +244,7 @@ document.getElementById('submitBtn').addEventListener('click', async (e)=>{
     document.getElementById('dynForm').reset();
   }catch(e){
     showToast('Error: '+(e.message||'Failed'), true);
-    console.error('Flow error:', e);
+    console.error('Submission error:', e);
   }
 });
 </script>
